@@ -37,8 +37,8 @@ export const DEFAULT_SETTINGS: VoiceSettings = {
   gender: 'neutral',
   age: 'adult',
   timbre: 50,
-  amplifier: 35,
-  volume: 80,
+  amplifier: 20,
+  volume: 85,
   effects: {
     echo: false,
     wahwah: false,
@@ -49,44 +49,49 @@ export const DEFAULT_SETTINGS: VoiceSettings = {
     flanger: false,
     bitcrush: false,
   },
-  effectMix: 55,
+  effectMix: 35,
   inputDeviceId: 'default',
   outputDeviceId: '',
-  /** Off by default — monitoring speakers while the mic is open causes feedback loops. */
   monitorLocally: false,
 };
 
-export const EFFECT_META: { id: EffectId; label: string; description: string }[] = [
-  { id: 'echo', label: 'Echo', description: 'Delayed repeats' },
-  { id: 'wahwah', label: 'Wah-wah', description: 'Sweeping filter' },
-  { id: 'distortion', label: 'Distortion', description: 'Gritty drive' },
-  { id: 'reverb', label: 'Reverb', description: 'Room wash' },
-  { id: 'chorus', label: 'Chorus', description: 'Wide doubles' },
-  { id: 'robot', label: 'Robot', description: 'Ring-mod metallic' },
-  { id: 'flanger', label: 'Flanger', description: 'Jet sweep' },
-  { id: 'bitcrush', label: 'Bitcrush', description: 'Lo-fi crunch' },
-];
+export const PREHEAR_SECONDS = 11;
+export const PREHEAR_READY_SECONDS = 0.4;
 
-/** Pitch / formant targets derived from character presets. */
+/**
+ * Character → gentle EQ / mild pitch targets.
+ * Amounts stay small so speech stays intelligible.
+ */
 export function resolveVoiceCharacter(s: VoiceSettings): {
   pitchSemitones: number;
-  formantShift: number;
+  lowGain: number;
+  midGain: number;
+  highGain: number;
+  midFreq: number;
 } {
   let pitch = 0;
-  let formant = 0;
+  let low = 0;
+  let mid = 0;
+  let high = 0;
+  let midFreq = 1200;
 
   switch (s.gender) {
     case 'feminine':
-      pitch += 4;
-      formant += 0.18;
+      pitch += 2.2;
+      mid += 2.5;
+      high += 3.5;
+      midFreq = 1600;
       break;
     case 'masculine':
-      pitch -= 4;
-      formant -= 0.16;
+      pitch -= 2.2;
+      low += 3;
+      high -= 2;
+      midFreq = 900;
       break;
     case 'androgynous':
-      pitch += 1;
-      formant += 0.04;
+      pitch += 0.6;
+      mid += 1;
+      midFreq = 1400;
       break;
     default:
       break;
@@ -94,20 +99,25 @@ export function resolveVoiceCharacter(s: VoiceSettings): {
 
   switch (s.age) {
     case 'child':
-      pitch += 7;
-      formant += 0.28;
+      pitch += 3.5;
+      high += 4;
+      mid += 2;
+      midFreq = 1800;
       break;
     case 'teen':
-      pitch += 3;
-      formant += 0.12;
+      pitch += 1.5;
+      high += 2;
+      midFreq = 1500;
       break;
     case 'young':
-      pitch += 1;
-      formant += 0.05;
+      pitch += 0.5;
+      high += 1;
       break;
     case 'elder':
-      pitch -= 2;
-      formant -= 0.08;
+      pitch -= 1;
+      low += 1.5;
+      high -= 1.5;
+      midFreq = 1000;
       break;
     default:
       break;
@@ -115,28 +125,39 @@ export function resolveVoiceCharacter(s: VoiceSettings): {
 
   switch (s.race) {
     case 'bright':
-      formant += 0.1;
-      pitch += 0.5;
+      high += 2;
+      mid += 1;
       break;
     case 'warm':
-      formant -= 0.06;
-      pitch -= 0.3;
+      low += 2;
+      high -= 1;
       break;
     case 'deep':
-      formant -= 0.14;
-      pitch -= 1.5;
+      pitch -= 1;
+      low += 3;
+      high -= 2;
+      midFreq = 850;
       break;
     case 'airy':
-      formant += 0.16;
-      pitch += 1.2;
+      pitch += 0.8;
+      high += 3;
+      midFreq = 1700;
       break;
     default:
       break;
   }
 
-  // Timbre: 0 = darker/lower formants, 100 = brighter
-  formant += (s.timbre - 50) / 50 * 0.22;
-  pitch += (s.timbre - 50) / 50 * 1.5;
+  // Timbre: gentle tilt only
+  const tilt = (s.timbre - 50) / 50;
+  high += tilt * 3;
+  low -= tilt * 2;
+  pitch += tilt * 0.6;
 
-  return { pitchSemitones: pitch, formantShift: formant };
+  return {
+    pitchSemitones: pitch,
+    lowGain: low,
+    midGain: mid,
+    highGain: high,
+    midFreq,
+  };
 }

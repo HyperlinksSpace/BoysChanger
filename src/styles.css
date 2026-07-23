@@ -225,13 +225,66 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.prehear-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   gap: 8px;
 }
 
-.prehear-btn {
+.prehear-title {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.prehear-time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-dim);
+}
+
+.prehear-wave {
   width: 100%;
-  padding: 12px 14px !important;
-  font-size: 14px !important;
+  height: 52px;
+  display: block;
+  border-radius: 8px;
+}
+
+.prehear-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.icon-btn:hover:not(:disabled) {
+  border-color: rgba(212, 255, 74, 0.45);
+  color: var(--accent);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .prehear-info {
@@ -239,6 +292,8 @@ body {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.35;
+  flex: 1;
+  min-width: 0;
 }
 
 /* —— Panels —— */

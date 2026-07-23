@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { VoiceEngine } from './audio/VoiceEngine';
+import { VoiceEngine, type PrehearState } from './audio/VoiceEngine';
 import {
   DEFAULT_SETTINGS,
   type AgePreset,
@@ -8,6 +8,7 @@ import {
   type RacePreset,
   type VoiceSettings,
 } from './audio/types';
+import { PrehearPanel } from './components/PrehearPanel';
 import { LOCALES, detectLocale, t, type Locale, type MessageKey } from './i18n';
 import './styles.css';
 
@@ -72,12 +73,20 @@ export default function App() {
   const [statusKey, setStatusKey] = useState<MessageKey>('statusIdle');
   const [statusVars, setStatusVars] = useState<Record<string, string | number>>({});
   const [busy, setBusy] = useState(false);
-  const [prehearInfo, setPrehearInfo] = useState('');
   const [platform, setPlatform] = useState<string>('win32');
   const [engineOn, setEngineOn] = useState(false);
   const [locale, setLocale] = useState<Locale>(() => loadLocale());
   const [version, setVersion] = useState(APP_VERSION);
   const [updateNote, setUpdateNote] = useState('');
+  const [prehear, setPrehear] = useState<PrehearState>({
+    ready: false,
+    playing: false,
+    paused: false,
+    seconds: 0,
+    position: 0,
+    peaks: new Float32Array(160),
+  });
+  const [systemMsg, setSystemMsg] = useState('');
 
   const tr = useCallback((key: MessageKey, vars?: Record<string, string | number>) => t(locale, key, vars), [locale]);
 
@@ -146,11 +155,13 @@ export default function App() {
     })();
 
     const unsubLevel = engineRef.current.onLevel(setLevel);
+    const unsubPrehear = engineRef.current.onPrehear(setPrehear);
     navigator.mediaDevices?.addEventListener?.('devicechange', refreshDevices);
     void refreshDevices();
     return () => {
       unsubUpdate?.();
       unsubLevel();
+      unsubPrehear();
       navigator.mediaDevices?.removeEventListener?.('devicechange', refreshDevices);
       void engineRef.current.stop();
     };
@@ -217,17 +228,6 @@ export default function App() {
     setStatus(nextEnabled ? 'statusOn' : 'statusOff');
   };
 
-  const onPrehear = async () => {
-    if (!engineOn) {
-      setPrehearInfo(tr('prehearNeedEngine'));
-      return;
-    }
-    const { seconds } = await engineRef.current.prehear();
-    setPrehearInfo(
-      seconds > 0 ? tr('prehearPlaying', { seconds: seconds.toFixed(1) }) : tr('prehearEmpty'),
-    );
-  };
-
   const applySystemWide = async () => {
     if (!window.boysChanger) {
       setStatus('statusNeedDesktop');
@@ -238,8 +238,7 @@ export default function App() {
     const res = await window.boysChanger.setSystemInput(systemHint);
     setStatusKey('statusIdle');
     setStatusVars({});
-    // Show server message in status line as raw via failed key substitution fallback
-    setPrehearInfo(res.message);
+    setSystemMsg(res.message);
     if (res.ok && !engineOn) {
       await startEngine(true);
     }
@@ -294,12 +293,23 @@ export default function App() {
             <p className="status">{tr(statusKey, statusVars)}</p>
           </div>
         </div>
-        <div className="prehear-block">
-          <button type="button" className="primary prehear-btn" onClick={() => void onPrehear()}>
-            {tr('prehearBtn')}
-          </button>
-          <p className="prehear-info">{prehearInfo || tr('prehearHint')}</p>
-        </div>
+        <PrehearPanel
+          state={prehear}
+          engineRunning={engineOn}
+          labels={{
+            title: tr('prehear'),
+            hint: systemMsg || tr('prehearHint'),
+            play: tr('prehearPlay'),
+            pause: tr('prehearPause'),
+            needEngine: tr('prehearNeedEngine'),
+            empty: tr('prehearEmpty'),
+          }}
+          onPlay={() => {
+            engineRef.current.preparePrehear();
+            engineRef.current.playPrehear();
+          }}
+          onPause={() => engineRef.current.pausePrehear()}
+        />
       </section>
 
       <section className="panel compact devices">
