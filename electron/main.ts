@@ -20,6 +20,7 @@ import {
   logInfo,
   logWarn,
   readTail,
+  savePrehearDebug,
 } from './logger';
 
 const execFileAsync = promisify(execFile);
@@ -568,3 +569,13 @@ ipcMain.handle('open-log-folder', async () => {
   await shell.openPath(dir);
   return { ok: true, path: dir };
 });
+ipcMain.handle(
+  'save-prehear-debug',
+  (
+    _evt,
+    payload: { wav: ArrayBuffer; meta?: Record<string, unknown> },
+  ) => {
+    if (!payload?.wav) return { ok: false, error: 'missing wav' };
+    return savePrehearDebug(payload.wav, payload.meta || {});
+  },
+);

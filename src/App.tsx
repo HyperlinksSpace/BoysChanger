@@ -62,8 +62,45 @@ function looksLikeVirtualOutput(label: string): boolean {
   return /cable input|blackhole|voicemeeter input|vb-audio/i.test(label);
 }
 
+/** Virtual / soft mics that often yield silence when used as BoysChanger input. */
+function looksLikeBadInput(label: string): boolean {
+  return /voicemod|cable output|cable input|blackhole|voicemeeter|vb-audio|virtual|stereo mix|what u hear|wave out mix/i.test(
+    label,
+  );
+}
+
 function looksLikeVirtualInput(label: string): boolean {
-  return /cable output|blackhole|voicemeeter output|vb-audio/i.test(label);
+  return looksLikeBadInput(label);
+}
+
+async function pickHardwareInputId(
+  preferred: string,
+  devices: { deviceId: string; label: string; kind: MediaDeviceKind }[],
+): Promise<{ deviceId: string; label: string; changed: boolean }> {
+  const inputs = devices.filter((d) => d.kind === 'audioinput');
+  const preferredDev =
+    preferred && preferred !== 'default'
+      ? inputs.find((d) => d.deviceId === preferred)
+      : undefined;
+
+  if (preferredDev && !looksLikeBadInput(preferredDev.label)) {
+    return { deviceId: preferredDev.deviceId, label: preferredDev.label, changed: false };
+  }
+
+  const hardware = inputs.find((d) => d.label && !looksLikeBadInput(d.label));
+  if (hardware) {
+    return {
+      deviceId: hardware.deviceId,
+      label: hardware.label,
+      changed: !preferredDev || preferredDev.deviceId !== hardware.deviceId,
+    };
+  }
+
+  return {
+    deviceId: preferredDev?.deviceId || 'default',
+    label: preferredDev?.label || 'default',
+    changed: false,
+  };
 }
 
 export default function App() {
@@ -135,7 +172,11 @@ export default function App() {
         data,
       });
     });
-  }, []);
+    engineRef.current.setMicWarningHandler((code, detail) => {
+      if (code === 'silence') setSystemMsg(tr('micSilence'));
+      else if (code === 'virtual-mic') setSystemMsg(tr('micBadInput', { label: detail || '' }));
+    });
+  }, [tr]);
 
   useEffect(() => {
     let unsubUpdate: (() => void) | undefined;
@@ -237,7 +278,42 @@ export default function App() {
     setBusy(true);
     setStatus('statusStarting');
     try {
-      const next = { ...base, enabled };
+      let deviceList = devices;
+      if (deviceList.length === 0) {
+        await refreshDevices();
+        // refreshDevices updates state async — re-enumerate here for a sync pick
+        const list = await navigator.mediaDevices.enumerateDevices();
+        deviceList = list
+          .filter((d) => d.kind === 'audioinput' || d.kind === 'audiooutput')
+          .map((d) => ({
+            deviceId: d.deviceId,
+            label: d.label || `${d.kind} (${d.deviceId.slice(0, 6)})`,
+            kind: d.kind,
+          }));
+      }
+
+      // Prefer a real hardware mic — Windows "Default" is often Voicemod (silent here).
+      let next = { ...base, enabled };
+      const picked = await pickHardwareInputId(next.inputDeviceId, deviceList);
+      if (picked.changed || (picked.deviceId !== 'default' && next.inputDeviceId === 'default')) {
+        next = { ...next, inputDeviceId: picked.deviceId };
+        setSystemMsg(tr('micAutoPicked', { label: picked.label }));
+      }
+      if (looksLikeBadInput(picked.label)) {
+        setSystemMsg(tr('micBadInput', { label: picked.label }));
+      }
+
+      const outList = deviceList.filter((d) => d.kind === 'audiooutput');
+      // Prefer virtual cable as output when available
+      if (!next.outputDeviceId || !looksLikeVirtualOutput(
+        outList.find((d) => d.deviceId === next.outputDeviceId)?.label || '',
+      )) {
+        const virtual = outList.find((d) => looksLikeVirtualOutput(d.label));
+        if (virtual) {
+          next = { ...next, outputDeviceId: virtual.deviceId };
+        }
+      }
+
       setSettings(next);
       void window.boysChanger?.debugLog({
         scope: 'App',
@@ -245,7 +321,9 @@ export default function App() {
         data: {
           enabled,
           inputDeviceId: next.inputDeviceId,
+          inputLabel: picked.label,
           outputDeviceId: next.outputDeviceId,
+          micAutoPicked: picked.changed,
         },
       });
       await engineRef.current.start(next);

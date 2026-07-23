@@ -77,10 +77,18 @@ export class VoiceEngine {
   private captureSilent: GainNode | null = null;
   private captureMode: 'auto' | 'script' | 'analyser' = 'auto';
   private scriptHits = 0;
+  private rawAnalyser: AnalyserNode | null = null;
+  private rawTimeData: Float32Array | null = null;
+  private silenceFrames = 0;
   private onLog: ((level: string, msg: string, data?: unknown) => void) | null = null;
+  private onMicWarning: ((code: string, detail?: string) => void) | null = null;
 
   setLogger(fn: ((level: string, msg: string, data?: unknown) => void) | null) {
     this.onLog = fn;
+  }
+
+  setMicWarningHandler(fn: ((code: string, detail?: string) => void) | null) {
+    this.onMicWarning = fn;
   }
 
   private log(level: string, msg: string, data?: unknown) {
@@ -148,29 +156,47 @@ export class VoiceEngine {
     this.workletReady = await loadPitchWorklet(this.ctx);
 
     const wantsMonitor = settings.monitorLocally;
-    // Do NOT constrain sampleRate — it often fails on Windows and leaves the engine silent.
-    // Prefer light constraints so Windows doesn't mute the graph.
+    // Always disable browser DSP — it fights voice changers and soft mics (Voicemod).
+    const audioConstraints: MediaTrackConstraints = {
+      deviceId:
+        settings.inputDeviceId && settings.inputDeviceId !== 'default'
+          ? { exact: settings.inputDeviceId }
+          : undefined,
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      channelCount: 1,
+    };
     this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId:
-          settings.inputDeviceId && settings.inputDeviceId !== 'default'
-            ? { exact: settings.inputDeviceId }
-            : undefined,
-        echoCancellation: Boolean(wantsMonitor),
-        noiseSuppression: false,
-        autoGainControl: false,
-        channelCount: 1,
-      },
+      audio: audioConstraints,
       video: false,
     });
     const track = this.stream.getAudioTracks()[0];
+    if (track) {
+      track.enabled = true;
+      try {
+        await track.applyConstraints({
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        });
+      } catch {
+        /* some soft mics reject constraint changes */
+      }
+    }
+    const label = track?.label || '';
     this.log('info', 'mic acquired', {
-      label: track?.label,
+      label,
       readyState: track?.readyState,
       muted: track?.muted,
       enabled: track?.enabled,
       settings: track?.getSettings?.(),
+      wantsMonitor,
     });
+    if (/voicemod|cable|blackhole|voicemeeter|vb-audio|virtual/i.test(label)) {
+      this.log('warn', 'input looks like a virtual/soft mic — often silent', { label });
+      this.onMicWarning?.('virtual-mic', label);
+    }
     this.source = this.ctx.createMediaStreamSource(this.stream);
 
     this.highpass = this.ctx.createBiquadFilter();
@@ -222,6 +248,13 @@ export class VoiceEngine {
     // Mic → HPF → amp → (dry|pitch) → formants → compressor → effects → master
     this.source.connect(this.highpass);
     this.highpass.connect(this.ampGain);
+
+    // Raw mic tap (diagnostics + prove whether silence is device vs graph)
+    this.rawAnalyser = this.ctx.createAnalyser();
+    this.rawAnalyser.fftSize = 2048;
+    this.rawAnalyser.smoothingTimeConstant = 0.2;
+    this.rawTimeData = new Float32Array(this.rawAnalyser.fftSize);
+    this.source.connect(this.rawAnalyser);
 
     this.ampGain.connect(this.pitchBypass);
     this.pitchBypass.connect(this.formantLow);
@@ -687,6 +720,11 @@ export class VoiceEngine {
     }
     const startAt = this.prehearPaused ? this.prehearPauseAt : 0;
 
+    // Save a fresh play (not resume) for debugging — last 2 WAVs in logs folder.
+    if (startAt < 0.02) {
+      void this.savePrehearDebugDump();
+    }
+
     const src = this.ctx.createBufferSource();
     src.buffer = this.prehearBuffer;
     src.connect(this.prehearGain);
@@ -708,6 +746,37 @@ export class VoiceEngine {
     this.prehearPaused = false;
     this.emitPrehear();
     return true;
+  }
+
+  private async savePrehearDebugDump() {
+    if (!this.prehearBuffer || !this.ctx) return;
+    try {
+      const ch = this.prehearBuffer.getChannelData(0);
+      const samples = new Float32Array(ch.length);
+      samples.set(ch);
+      let sum = 0;
+      let peak = 0;
+      for (let i = 0; i < samples.length; i++) {
+        const a = Math.abs(samples[i]);
+        sum += samples[i] * samples[i];
+        if (a > peak) peak = a;
+      }
+      const rms = Math.sqrt(sum / Math.max(1, samples.length));
+      const wav = encodeWavPcm16(samples, this.prehearBuffer.sampleRate);
+      const result = await window.boysChanger?.savePrehearDebug(wav, {
+        seconds: Number(this.prehearBuffer.duration.toFixed(3)),
+        sampleRate: this.prehearBuffer.sampleRate,
+        frames: samples.length,
+        rms: Number(rms.toFixed(6)),
+        peak: Number(peak.toFixed(6)),
+        silent: rms < 0.0008,
+      });
+      this.log('info', 'prehear debug dump', result);
+    } catch (e) {
+      this.log('warn', 'prehear debug dump failed', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   pausePrehear() {
@@ -774,7 +843,35 @@ export class VoiceEngine {
       const rms = Math.sqrt(sum / this.prehearTimeData.length);
       this.levelListeners.forEach((cb) => cb(rms));
 
+      let rawRms = 0;
+      if (this.rawAnalyser && this.rawTimeData) {
+        (this.rawAnalyser as unknown as { getFloatTimeDomainData(a: Float32Array): void }).getFloatTimeDomainData(
+          this.rawTimeData,
+        );
+        let rsum = 0;
+        for (let i = 0; i < this.rawTimeData.length; i++) {
+          const v = this.rawTimeData[i];
+          rsum += v * v;
+        }
+        rawRms = Math.sqrt(rsum / this.rawTimeData.length);
+      }
+
+      if (rms < 0.0008 && rawRms < 0.0008) {
+        this.silenceFrames++;
+        if (this.silenceFrames === 120) {
+          this.log('warn', 'mic silence detected', {
+            rms,
+            rawRms,
+            prehearSec: this.ring.availableSeconds,
+          });
+          this.onMicWarning?.('silence');
+        }
+      } else {
+        this.silenceFrames = 0;
+      }
+
       // Continuous prehear: take newest ~dt samples from the analyser window.
+      // Prefer processed signal; if it's dead but raw mic has audio, capture raw so prehear isn't empty.
       const now = this.ctx.currentTime;
       const dt = Math.max(0, Math.min(0.1, now - this.lastCaptureCtxTime));
       this.lastCaptureCtxTime = now;
@@ -783,7 +880,9 @@ export class VoiceEngine {
           this.prehearTimeData.length,
           Math.max(1, Math.floor(dt * this.ctx.sampleRate)),
         );
-        this.ring.push(this.prehearTimeData.subarray(this.prehearTimeData.length - n));
+        const useRaw = rms < 0.0008 && rawRms >= 0.0008 && this.rawTimeData;
+        const srcData = useRaw ? this.rawTimeData! : this.prehearTimeData;
+        this.ring.push(srcData.subarray(srcData.length - n));
         this.peaksCache = computePeaks(this.ring.snapshot(), 160);
       }
 
@@ -791,6 +890,7 @@ export class VoiceEngine {
       if (frames === 60 || frames === 300) {
         this.log('info', 'engine heartbeat', {
           rms: Number(rms.toFixed(5)),
+          rawRms: Number(rawRms.toFixed(5)),
           prehearSec: Number(this.ring.availableSeconds.toFixed(2)),
           captureMode: this.captureMode,
           ctx: this.ctx.state,
@@ -842,6 +942,9 @@ export class VoiceEngine {
     this.ring = null;
     this.keepAliveGain = null;
     this.captureSilent = null;
+    this.rawAnalyser = null;
+    this.rawTimeData = null;
+    this.silenceFrames = 0;
     this.libraryGain = null;
     this.libraryLocalGain = null;
     this.prehearTimeData = null;
@@ -872,6 +975,35 @@ function computePeaks(data: ArrayLike<number>, bars: number): Float32Array {
     out[i] = peak;
   }
   return out as Float32Array;
+}
+
+function encodeWavPcm16(samples: Float32Array, sampleRate: number): ArrayBuffer {
+  const n = samples.length;
+  const buffer = new ArrayBuffer(44 + n * 2);
+  const view = new DataView(buffer);
+  const writeStr = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + n * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  view.setUint32(40, n * 2, true);
+  let o = 44;
+  for (let i = 0; i < n; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    o += 2;
+  }
+  return buffer;
 }
 
 function makeDistortionCurve(amount: number): Float32Array<ArrayBuffer> {

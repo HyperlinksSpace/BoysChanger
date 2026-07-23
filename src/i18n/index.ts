@@ -35,6 +35,11 @@ const en = {
   systemDefault: 'System default',
   defaultSpeakers: 'Default speakers',
   virtualAvoid: ' (virtual — usually avoid)',
+  micAutoPicked: 'Input auto-switched to hardware mic: {label}',
+  micBadInput:
+    'Input "{label}" looks virtual (e.g. Voicemod). Pick your real microphone or prehear will be silent.',
+  micSilence:
+    'No mic signal — select your real hardware microphone (not Voicemod/CABLE) and speak again.',
   refreshDevices: 'Refresh devices',
   applySystem: 'Apply as system input',
   startEngine: 'Start engine',
@@ -136,6 +141,9 @@ const zh: Record<MessageKey, string> = {
   systemDefault: '系统默认',
   defaultSpeakers: '默认扬声器',
   virtualAvoid: '（虚拟设备 — 通常不要选）',
+  micAutoPicked: '已自动切换到硬件麦克风：{label}',
+  micBadInput: '输入「{label}」像是虚拟设备（如 Voicemod）。请选择真实麦克风，否则试听会是静音。',
+  micSilence: '没有麦克风信号 — 请选择真实硬件麦克风（不要选 Voicemod/CABLE），然后再次说话。',
   refreshDevices: '刷新设备',
   applySystem: '设为系统输入',
   startEngine: '启动引擎',
@@ -237,6 +245,11 @@ const ru: Record<MessageKey, string> = {
   systemDefault: 'Системный по умолчанию',
   defaultSpeakers: 'Динамики по умолчанию',
   virtualAvoid: ' (виртуальный — обычно не выбирать)',
+  micAutoPicked: 'Вход автоматически переключён на аппаратный микрофон: {label}',
+  micBadInput:
+    'Вход «{label}» похож на виртуальный (например Voicemod). Выберите настоящий микрофон, иначе Prehear будет тихим.',
+  micSilence:
+    'Нет сигнала с микрофона — выберите аппаратный микрофон (не Voicemod/CABLE) и снова поговорите.',
   refreshDevices: 'Обновить устройства',
   applySystem: 'Сделать системным входом',
   startEngine: 'Запустить движок',

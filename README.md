@@ -75,6 +75,13 @@ The app writes rolling logs to:
 
 Use the **Logs** button in the app to open the folder. Share that file when reporting audio issues.
 
+Each Prehear **Play** also saves the last **2** captures as WAV + JSON next to the log:
+
+- `prehear-1.wav` / `prehear-1.json` — newest
+- `prehear-2.wav` / `prehear-2.json` — previous
+
+JSON includes `rms`, `peak`, `seconds`, and `silent` for quick diagnosis.
+
 ### Auto-update
 
 Packaged builds poll GitHub Releases about every **30 minutes**, retry on flaky network errors (`ERR_CONNECTION_CLOSED`, etc.), fall back to the GitHub API, download updates automatically, and relaunch into the new version. Public repos need no token. Optional: set `GH_TOKEN` / `GITHUB_TOKEN` (repo scope) if GitHub rate-limits or blocks anonymous requests on your network.

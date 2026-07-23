@@ -55,6 +55,79 @@ export function getPrimaryLogPath(): string {
   return logPaths[0] || path.join(app.getPath('userData'), 'logs', 'boyschanger.log');
 }
 
+export function getLogDir(): string {
+  return path.dirname(getPrimaryLogPath());
+}
+
+/**
+ * Keep the last 2 prehear WAVs for debugging:
+ *   prehear-1.wav (newest), prehear-2.wav (previous)
+ * plus matching .json metadata.
+ */
+export function savePrehearDebug(
+  wavBytes: ArrayBuffer | Uint8Array,
+  meta: Record<string, unknown> = {},
+): { ok: boolean; files?: string[]; error?: string } {
+  try {
+    const dir = getLogDir();
+    fs.mkdirSync(dir, { recursive: true });
+
+    const newestWav = path.join(dir, 'prehear-1.wav');
+    const prevWav = path.join(dir, 'prehear-2.wav');
+    const newestJson = path.join(dir, 'prehear-1.json');
+    const prevJson = path.join(dir, 'prehear-2.json');
+
+    try {
+      if (fs.existsSync(newestWav)) fs.copyFileSync(newestWav, prevWav);
+      if (fs.existsSync(newestJson)) fs.copyFileSync(newestJson, prevJson);
+    } catch {
+      /* */
+    }
+
+    const buf = Buffer.from(wavBytes instanceof ArrayBuffer ? new Uint8Array(wavBytes) : wavBytes);
+    fs.writeFileSync(newestWav, buf);
+    fs.writeFileSync(
+      newestJson,
+      JSON.stringify(
+        {
+          savedAt: new Date().toISOString(),
+          bytes: buf.length,
+          ...meta,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    // Mirror into other log dirs (dev workspace) when present
+    for (const logFile of logPaths.slice(1)) {
+      try {
+        const d = path.dirname(logFile);
+        fs.mkdirSync(d, { recursive: true });
+        fs.copyFileSync(newestWav, path.join(d, 'prehear-1.wav'));
+        fs.copyFileSync(newestJson, path.join(d, 'prehear-1.json'));
+        if (fs.existsSync(prevWav)) fs.copyFileSync(prevWav, path.join(d, 'prehear-2.wav'));
+        if (fs.existsSync(prevJson)) fs.copyFileSync(prevJson, path.join(d, 'prehear-2.json'));
+      } catch {
+        /* */
+      }
+    }
+
+    logInfo('prehear-debug', 'saved prehear WAV', {
+      newestWav,
+      seconds: meta.seconds,
+      rms: meta.rms,
+      peak: meta.peak,
+    });
+    return { ok: true, files: [newestWav, prevWav] };
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    logError('prehear-debug', 'failed to save prehear', { error });
+    return { ok: false, error };
+  }
+}
+
 function rotateIfNeeded(file: string) {
   try {
     if (!fs.existsSync(file)) return;

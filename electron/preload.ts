@@ -32,6 +32,11 @@ const api = {
     ipcRenderer.invoke('read-debug-log', maxLines),
   openLogFolder: (): Promise<{ ok: boolean; path: string }> =>
     ipcRenderer.invoke('open-log-folder'),
+  savePrehearDebug: (
+    wav: ArrayBuffer,
+    meta?: Record<string, unknown>,
+  ): Promise<{ ok: boolean; files?: string[]; error?: string }> =>
+    ipcRenderer.invoke('save-prehear-debug', { wav, meta }),
   onUpdateStatus: (cb: (payload: UpdateStatusPayload) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: UpdateStatusPayload) => cb(payload);
     ipcRenderer.on('update-status', listener);
