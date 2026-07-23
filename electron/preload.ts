@@ -20,6 +20,18 @@ const api = {
     ipcRenderer.invoke('check-for-updates'),
   setChangerStatus: (on: boolean): Promise<{ ok: boolean; on: boolean }> =>
     ipcRenderer.invoke('set-changer-status', on),
+  debugLog: (payload: {
+    level?: 'info' | 'warn' | 'error';
+    scope?: string;
+    message: string;
+    data?: unknown;
+  }): Promise<{ ok: boolean }> => ipcRenderer.invoke('debug-log', payload),
+  getLogPath: (): Promise<{ primary: string; paths: string[] }> =>
+    ipcRenderer.invoke('get-log-path'),
+  readDebugLog: (maxLines?: number): Promise<string> =>
+    ipcRenderer.invoke('read-debug-log', maxLines),
+  openLogFolder: (): Promise<{ ok: boolean; path: string }> =>
+    ipcRenderer.invoke('open-log-folder'),
   onUpdateStatus: (cb: (payload: UpdateStatusPayload) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: UpdateStatusPayload) => cb(payload);
     ipcRenderer.on('update-status', listener);

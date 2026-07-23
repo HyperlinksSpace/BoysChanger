@@ -549,6 +549,16 @@ input[type='range']::-webkit-slider-thumb {
   padding: 2px;
 }
 
+.footer .linkish {
+  border: 0;
+  background: transparent;
+  color: var(--accent, #d4ff4a);
+  cursor: pointer;
+  font-size: 11px;
+  text-decoration: underline;
+  padding: 0;
+}
+
 .sound-actions {
   display: flex;
   flex-wrap: wrap;

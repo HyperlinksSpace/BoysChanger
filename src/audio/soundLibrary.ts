@@ -254,3 +254,15 @@ export async function removeSound(id: string): Promise<void> {
     urlCache.delete(id);
   }
 }
+
+/** Raw bytes for Web Audio decode — avoids fetch(blob:) which fails in Electron. */
+export async function getSoundArrayBuffer(id: string): Promise<ArrayBuffer> {
+  await ensureBuiltinsSeeded();
+  const rows = await idbGetAll();
+  const row = rows.find((r) => r.id === id);
+  if (!row) throw new Error(`Sound not found: ${id}`);
+  const buf = row.buffer as ArrayBuffer | Blob;
+  if (buf instanceof Blob) return buf.arrayBuffer();
+  // Copy so decodeAudioData can detach safely
+  return buf.slice(0);
+}

@@ -68,6 +68,7 @@ const en = {
   updateLatest: 'You are up to date',
   updateError: 'Update check failed',
   updateCheck: 'Check for updates',
+  openLogs: 'Logs',
   soundsTitle: 'Sound library',
   soundsHint:
     'Click to play on speakers and into the virtual cable (Telegram hears it too). Upload your own MP3.',
@@ -167,6 +168,7 @@ const zh: Record<MessageKey, string> = {
   updateLatest: '已是最新版本',
   updateError: '检查更新失败',
   updateCheck: '检查更新',
+  openLogs: '日志',
   soundsTitle: '音效库',
   soundsHint: '点击后同时在扬声器与虚拟声卡播放（Telegram 也能听到）。可上传自己的 MP3。',
   soundsUpload: '上传 MP3',
@@ -266,6 +268,7 @@ const ru: Record<MessageKey, string> = {
   updateLatest: 'У вас актуальная версия',
   updateError: 'Не удалось проверить обновления',
   updateCheck: 'Проверить обновления',
+  openLogs: 'Логи',
   soundsTitle: 'Библиотека звуков',
   soundsHint:
     'Нажмите — звук идёт в динамики и в виртуальный кабель (в Telegram тоже слышно). Можно загрузить свой MP3.',

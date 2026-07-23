@@ -66,6 +66,19 @@ Optional: `brew install switchaudio-osx` for automatic input switching.
 
 Sound-library clips and prehear playback go to **both** your speakers and the virtual cable, so the other side hears them too.
 
+### Debug logs
+
+The app writes rolling logs to:
+
+- `%APPDATA%\BoysChanger\logs\boyschanger.log` (Windows)
+- and, in dev, `logs/boyschanger.log` in the project folder
+
+Use the **Logs** button in the app to open the folder. Share that file when reporting audio issues.
+
+### Auto-update
+
+Packaged builds poll GitHub Releases about every **30 minutes**, download updates automatically, and relaunch into the new version. Public repos need no token. For a private repo, set a `GH_TOKEN` (or `GITHUB_TOKEN`) with `repo` scope in the environment for the installed app / CI.
+
 ## Develop
 
 ```bash

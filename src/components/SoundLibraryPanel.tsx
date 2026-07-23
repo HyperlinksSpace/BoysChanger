@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   addUserMp3,
+  getSoundArrayBuffer,
   listSounds,
   removeSound,
   type LibrarySound,
@@ -17,7 +18,7 @@ type Props = {
     needEngine: string;
   };
   engineRunning: boolean;
-  onPlayUrl: (url: string) => Promise<void>;
+  onPlayBuffer: (buffer: ArrayBuffer) => Promise<number>;
   onStop: () => void;
   onEnsureEngine: () => Promise<boolean>;
 };
@@ -25,7 +26,7 @@ type Props = {
 export function SoundLibraryPanel({
   labels,
   engineRunning,
-  onPlayUrl,
+  onPlayBuffer,
   onStop,
   onEnsureEngine,
 }: Props) {
@@ -34,6 +35,7 @@ export function SoundLibraryPanel({
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const activeIdRef = useRef<string | null>(null);
+  const clearTimer = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -48,6 +50,7 @@ export function SoundLibraryPanel({
     void refresh();
     return () => {
       onStop();
+      if (clearTimer.current) window.clearTimeout(clearTimer.current);
     };
   }, [refresh, onStop]);
 
@@ -56,6 +59,7 @@ export function SoundLibraryPanel({
     onStop();
     setActiveId(null);
     activeIdRef.current = null;
+    if (clearTimer.current) window.clearTimeout(clearTimer.current);
 
     const ready = engineRunning || (await onEnsureEngine());
     if (!ready) {
@@ -66,23 +70,14 @@ export function SoundLibraryPanel({
     try {
       activeIdRef.current = sound.id;
       setActiveId(sound.id);
-      await onPlayUrl(sound.url);
-      // playLibraryUrl returns after decode/start; clear highlight when clip likely ends
-      // Actual end is handled in engine; poll briefly via timeout from metadata if needed.
-      const audio = new Audio(sound.url);
-      const clear = () => {
+      const buffer = await getSoundArrayBuffer(sound.id);
+      const duration = await onPlayBuffer(buffer);
+      clearTimer.current = window.setTimeout(() => {
         if (activeIdRef.current === sound.id) {
           activeIdRef.current = null;
           setActiveId(null);
         }
-      };
-      audio.addEventListener('loadedmetadata', () => {
-        const ms = Math.max(500, (audio.duration || 2) * 1000 + 100);
-        window.setTimeout(clear, ms);
-      });
-      audio.addEventListener('error', () => window.setTimeout(clear, 4000));
-      // fallback if metadata never loads
-      window.setTimeout(clear, 30000);
+      }, Math.max(400, duration * 1000 + 80));
     } catch (e) {
       activeIdRef.current = null;
       setActiveId(null);

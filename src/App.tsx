@@ -127,6 +127,17 @@ export default function App() {
   }, [locale]);
 
   useEffect(() => {
+    engineRef.current.setLogger((level, msg, data) => {
+      void window.boysChanger?.debugLog({
+        level: level === 'error' || level === 'warn' ? level : 'info',
+        scope: 'VoiceEngine',
+        message: msg,
+        data,
+      });
+    });
+  }, []);
+
+  useEffect(() => {
     let unsubUpdate: (() => void) | undefined;
 
     void (async () => {
@@ -141,6 +152,12 @@ export default function App() {
         const ver = await window.boysChanger.getVersion();
         setVersion(ver);
         await window.boysChanger.ensureMicPermission();
+        const paths = await window.boysChanger.getLogPath();
+        void window.boysChanger.debugLog({
+          scope: 'App',
+          message: 'renderer ready',
+          data: { version: ver, logPaths: paths },
+        });
 
         unsubUpdate = window.boysChanger.onUpdateStatus((payload) => {
           const loc = (localStorage.getItem('boyschanger-locale') as Locale) || 'en';
@@ -208,11 +225,27 @@ export default function App() {
     try {
       const next = { ...base, enabled };
       setSettings(next);
+      void window.boysChanger?.debugLog({
+        scope: 'App',
+        message: 'startEngine',
+        data: {
+          enabled,
+          inputDeviceId: next.inputDeviceId,
+          outputDeviceId: next.outputDeviceId,
+        },
+      });
       await engineRef.current.start(next);
       setEngineOn(true);
       setStatus(enabled ? 'statusOn' : 'statusPassthrough');
     } catch (e) {
-      setStatus('statusFailed', { error: e instanceof Error ? e.message : String(e) });
+      const error = e instanceof Error ? e.message : String(e);
+      void window.boysChanger?.debugLog({
+        level: 'error',
+        scope: 'App',
+        message: 'startEngine failed',
+        data: { error },
+      });
+      setStatus('statusFailed', { error });
       setEngineOn(false);
     } finally {
       setBusy(false);
@@ -300,8 +333,8 @@ export default function App() {
     }
   }, [engineOn, settings]);
 
-  const playLibraryUrl = useCallback(async (url: string) => {
-    await engineRef.current.playLibraryUrl(url);
+  const playLibraryBuffer = useCallback(async (buffer: ArrayBuffer) => {
+    return engineRef.current.playLibraryBuffer(buffer);
   }, []);
 
   const stopLibrary = useCallback(() => {
@@ -344,6 +377,14 @@ export default function App() {
             }}
           >
             {tr('updateCheck')}
+          </button>
+          <button
+            type="button"
+            className="secondary update-btn"
+            title={tr('openLogs')}
+            onClick={() => void window.boysChanger?.openLogFolder()}
+          >
+            {tr('openLogs')}
           </button>
           {updateNote ? <span className="update-note">{updateNote}</span> : null}
         </div>
@@ -586,7 +627,7 @@ export default function App() {
           needEngine: tr('soundsNeedEngine'),
         }}
         engineRunning={engineOn}
-        onPlayUrl={playLibraryUrl}
+        onPlayBuffer={playLibraryBuffer}
         onStop={stopLibrary}
         onEnsureEngine={ensureEngineForSounds}
       />
@@ -595,6 +636,9 @@ export default function App() {
         <span>
           {tr('footer')} · v{version}
         </span>
+        <button type="button" className="linkish" onClick={() => void window.boysChanger?.openLogFolder()}>
+          {tr('openLogs')}
+        </button>
       </footer>
     </div>
   );

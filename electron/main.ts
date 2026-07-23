@@ -11,6 +11,15 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { autoUpdater } from 'electron-updater';
+import {
+  getLogPaths,
+  getPrimaryLogPath,
+  initLogger,
+  logError,
+  logInfo,
+  logWarn,
+  readTail,
+} from './logger';
 
 const execFileAsync = promisify(execFile);
 
@@ -28,6 +37,7 @@ process.env.VITE_PUBLIC = app.isPackaged
 
 let mainWindow: BrowserWindow | null = null;
 let changerActive = false;
+let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
@@ -154,16 +164,19 @@ function createWindow() {
 }
 
 function setupAutoUpdater() {
-  if (!app.isPackaged) return;
+  if (!app.isPackaged) {
+    logInfo('updater', 'skipped in dev (not packaged)');
+    return;
+  }
 
+  // Public GitHub Releases need no token. For private repos set GH_TOKEN / GITHUB_TOKEN.
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  // Older releases used tags like v1.0.5-abc1234 (semver prerelease). Keep true
-  // so those builds can still be discovered; new tags are clean v1.0.N.
   autoUpdater.allowPrerelease = true;
   autoUpdater.allowDowngrade = false;
 
   const send = (status: string, version?: string, message?: string) => {
+    logInfo('updater', status, { version, message });
     mainWindow?.webContents.send('update-status', { status, version, message });
   };
 
@@ -173,7 +186,7 @@ function setupAutoUpdater() {
     send('not-available', info?.version ?? app.getVersion()),
   );
   autoUpdater.on('error', (err) => {
-    console.error('[autoUpdater]', err);
+    logError('updater', err?.message ? String(err.message) : String(err));
     send('error', undefined, err?.message ? String(err.message) : String(err));
   });
   autoUpdater.on('download-progress', (p) => {
@@ -181,22 +194,30 @@ function setupAutoUpdater() {
   });
   autoUpdater.on('update-downloaded', (info) => {
     send('downloaded', info.version);
+    // Seamless install: relaunch into the new version (Electron requires a restart).
     setTimeout(() => {
+      logInfo('updater', 'quitAndInstall', { version: info.version });
       autoUpdater.quitAndInstall(false, true);
-    }, 1800);
+    }, 800);
   });
 
-  const check = () => {
+  const check = (reason: string) => {
+    logInfo('updater', 'checkForUpdates', { reason });
     void autoUpdater.checkForUpdates().catch((err) => {
-      console.error('[autoUpdater] check failed', err);
+      logError('updater', 'check failed', { err: String(err) });
       send('error', undefined, err instanceof Error ? err.message : String(err));
     });
   };
 
-  // First check after UI is up; retry once shortly after in case of race with network
-  setTimeout(check, 5000);
-  setTimeout(check, 45000);
-  setInterval(check, 1000 * 60 * 60 * 4);
+  // Poll GitHub Releases API periodically (no webhook needed for public repos).
+  setTimeout(() => check('startup'), 5000);
+  setTimeout(() => check('startup-retry'), 30000);
+  if (updateCheckTimer) clearInterval(updateCheckTimer);
+  updateCheckTimer = setInterval(() => check('interval'), 1000 * 60 * 30);
+
+  app.on('browser-window-focus', () => {
+    // Light debounce via last-check would be nicer; interval + focus is enough.
+  });
 }
 
 async function ensureMicPermission(): Promise<boolean> {
@@ -287,6 +308,7 @@ function detectVirtualCableHints(): string[] {
 }
 
 app.whenReady().then(async () => {
+  initLogger();
   await ensureMicPermission();
   createWindow();
   setupAutoUpdater();
@@ -317,10 +339,33 @@ ipcMain.handle('check-for-updates', async () => {
     const result = await autoUpdater.checkForUpdates();
     return { ok: true, version: result?.updateInfo?.version };
   } catch (e) {
+    logError('updater', 'manual check failed', { err: String(e) });
     return { ok: false, message: String(e) };
   }
 });
 ipcMain.handle('set-changer-status', (_evt, on: boolean) => {
   applyChangerStatus(Boolean(on));
   return { ok: true, on: changerActive };
+});
+ipcMain.handle(
+  'debug-log',
+  (_evt, payload: { level?: string; scope?: string; message?: string; data?: unknown }) => {
+    const level = (payload?.level || 'info').toLowerCase();
+    const scope = payload?.scope || 'renderer';
+    const message = payload?.message || '';
+    if (level === 'error') logError(scope, message, payload?.data);
+    else if (level === 'warn') logWarn(scope, message, payload?.data);
+    else logInfo(scope, message, payload?.data);
+    return { ok: true };
+  },
+);
+ipcMain.handle('get-log-path', () => ({
+  primary: getPrimaryLogPath(),
+  paths: getLogPaths(),
+}));
+ipcMain.handle('read-debug-log', (_evt, maxLines?: number) => readTail(maxLines ?? 250));
+ipcMain.handle('open-log-folder', async () => {
+  const dir = path.dirname(getPrimaryLogPath());
+  await shell.openPath(dir);
+  return { ok: true, path: dir };
 });
