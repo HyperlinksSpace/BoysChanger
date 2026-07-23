@@ -62,15 +62,24 @@ function looksLikeVirtualOutput(label: string): boolean {
   return /cable input|blackhole|voicemeeter input|vb-audio/i.test(label);
 }
 
-/** Virtual / soft mics that often yield silence when used as BoysChanger input. */
+/** Soft / loop / processed inputs that often cause silence or feedback. */
 function looksLikeBadInput(label: string): boolean {
-  return /voicemod|cable output|cable input|blackhole|voicemeeter|vb-audio|virtual|stereo mix|what u hear|wave out mix/i.test(
+  return /voicemod|cable output|cable input|blackhole|voicemeeter|vb-audio|virtual|stereo mix|what u hear|wave out mix|noise-cancell|asus utility|ai noise/i.test(
     label,
   );
 }
 
 function looksLikeVirtualInput(label: string): boolean {
   return looksLikeBadInput(label);
+}
+
+function scoreHardwareMic(label: string): number {
+  if (!label || looksLikeBadInput(label)) return -1000;
+  let score = 1;
+  if (/microphone|микрофон|headset|наушник|mic\b/i.test(label)) score += 20;
+  if (/realtek|usb|logitech|hyperx|steelseries|razer|sony|jabra|blue yeti/i.test(label)) score += 10;
+  if (/array|webcam|camera/i.test(label)) score -= 5;
+  return score;
 }
 
 async function pickHardwareInputId(
@@ -83,16 +92,20 @@ async function pickHardwareInputId(
       ? inputs.find((d) => d.deviceId === preferred)
       : undefined;
 
-  if (preferredDev && !looksLikeBadInput(preferredDev.label)) {
+  if (preferredDev && scoreHardwareMic(preferredDev.label) > 0) {
     return { deviceId: preferredDev.deviceId, label: preferredDev.label, changed: false };
   }
 
-  const hardware = inputs.find((d) => d.label && !looksLikeBadInput(d.label));
-  if (hardware) {
+  const ranked = [...inputs]
+    .map((d) => ({ d, score: scoreHardwareMic(d.label) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  if (ranked[0]) {
     return {
-      deviceId: hardware.deviceId,
-      label: hardware.label,
-      changed: !preferredDev || preferredDev.deviceId !== hardware.deviceId,
+      deviceId: ranked[0].d.deviceId,
+      label: ranked[0].d.label,
+      changed: !preferredDev || preferredDev.deviceId !== ranked[0].d.deviceId,
     };
   }
 
@@ -312,6 +325,14 @@ export default function App() {
         if (virtual) {
           next = { ...next, outputDeviceId: virtual.deviceId };
         }
+      }
+
+      // No cable → force monitor off (speakers + open mic = echo/feedback).
+      if (!next.outputDeviceId) {
+        next = { ...next, monitorLocally: false };
+        setSystemMsg(tr('echoNoCable'));
+      } else if (next.monitorLocally) {
+        setSystemMsg(tr('monitorHint'));
       }
 
       setSettings(next);

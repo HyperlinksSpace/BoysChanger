@@ -294,8 +294,9 @@ export class VoiceEngine {
     this.masterGain.connect(this.destination);
     this.outElement = new Audio();
     this.outElement.autoplay = true;
-    this.outElement.volume = 1;
-    this.outElement.muted = false;
+    // Start muted until a virtual-cable sink is confirmed (prevents speaker feedback).
+    this.outElement.volume = 0;
+    this.outElement.muted = true;
     this.outElement.srcObject = this.destination.stream;
 
     this.analyser.connect(this.monitorGain);
@@ -571,25 +572,57 @@ export class VoiceEngine {
     });
 
     const hasVirtualOut = Boolean(settings.outputDeviceId);
+    // Monitor only when audio is routed to a virtual cable (headphones recommended).
+    // Monitoring while the cable path is the default speakers causes feedback.
     const monitorOn = settings.monitorLocally && hasVirtualOut;
     if (this.monitorGain) {
-      this.monitorGain.gain.setTargetAtTime(monitorOn ? 0.65 : 0, t, 0.04);
+      this.monitorGain.gain.setTargetAtTime(monitorOn ? 0.55 : 0, t, 0.04);
+    }
+    if (settings.monitorLocally && !hasVirtualOut) {
+      this.log('warn', 'monitor ignored — select CABLE Input / BlackHole as Output first');
+    }
+    // Keep outElement muted if sink was cleared while running
+    if (!hasVirtualOut && this.outElement) {
+      this.outElement.muted = true;
+      this.outElement.volume = 0;
     }
   }
 
   async applyOutputDevice(deviceId: string): Promise<boolean> {
     if (!this.outElement) return false;
     const sinkId = deviceId || '';
+
+    // CRITICAL: empty sink = default speakers. Playing processed mic there while the
+    // mic is open causes acoustic feedback ("everything is echoing").
+    if (!sinkId) {
+      this.outElement.muted = true;
+      this.outElement.volume = 0;
+      try {
+        this.outElement.pause();
+      } catch {
+        /* */
+      }
+      this.lastSinkOk = false;
+      this.log('warn', 'no virtual-cable output — muted speaker path to prevent echo');
+      return false;
+    }
+
     try {
       if (typeof this.outElement.setSinkId === 'function') {
         await this.outElement.setSinkId(sinkId);
       }
+      this.outElement.muted = false;
+      this.outElement.volume = 1;
       this.lastSinkOk = true;
       await this.ensureCablePlaying();
       return true;
     } catch (e) {
       this.lastSinkOk = false;
-      console.warn('setSinkId failed', e);
+      this.outElement.muted = true;
+      this.outElement.volume = 0;
+      this.log('warn', 'setSinkId failed — muted cable path', {
+        error: e instanceof Error ? e.message : String(e),
+      });
       return false;
     }
   }
@@ -600,6 +633,12 @@ export class VoiceEngine {
 
   private async ensureCablePlaying() {
     if (!this.outElement) return;
+    // Never unmute onto default speakers
+    if (!this.settings.outputDeviceId) {
+      this.outElement.muted = true;
+      this.outElement.volume = 0;
+      return;
+    }
     try {
       if (this.ctx?.state === 'suspended') await this.ctx.resume();
       this.outElement.muted = false;

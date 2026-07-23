@@ -40,6 +40,8 @@ const en = {
     'Input "{label}" looks virtual (e.g. Voicemod). Pick your real microphone or prehear will be silent.',
   micSilence:
     'No mic signal — select your real hardware microphone (not Voicemod/CABLE) and speak again.',
+  echoNoCable:
+    'Output is speakers (no virtual cable) — cable path muted to stop echo. Install VB-Cable and set Output to CABLE Input. Use headphones if you enable Monitor.',
   refreshDevices: 'Refresh devices',
   applySystem: 'Apply as system input',
   startEngine: 'Start engine',
@@ -144,6 +146,8 @@ const zh: Record<MessageKey, string> = {
   micAutoPicked: '已自动切换到硬件麦克风：{label}',
   micBadInput: '输入「{label}」像是虚拟设备（如 Voicemod）。请选择真实麦克风，否则试听会是静音。',
   micSilence: '没有麦克风信号 — 请选择真实硬件麦克风（不要选 Voicemod/CABLE），然后再次说话。',
+  echoNoCable:
+    '当前输出是扬声器（未选虚拟声卡）— 已静音线缆通路以防回授。请安装 VB-Cable，将输出设为 CABLE Input；开启监听时请用耳机。',
   refreshDevices: '刷新设备',
   applySystem: '设为系统输入',
   startEngine: '启动引擎',
@@ -250,6 +254,8 @@ const ru: Record<MessageKey, string> = {
     'Вход «{label}» похож на виртуальный (например Voicemod). Выберите настоящий микрофон, иначе Prehear будет тихим.',
   micSilence:
     'Нет сигнала с микрофона — выберите аппаратный микрофон (не Voicemod/CABLE) и снова поговорите.',
+  echoNoCable:
+    'Выход на динамики (нет виртуального кабеля) — путь в кабель выключен, чтобы убрать эхо. Установите VB-Cable и выберите Output = CABLE Input. Для Monitor используйте наушники.',
   refreshDevices: 'Обновить устройства',
   applySystem: 'Сделать системным входом',
   startEngine: 'Запустить движок',
