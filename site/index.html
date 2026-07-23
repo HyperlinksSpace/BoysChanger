@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BoysChanger — System-wide voice changer</title>
+    <meta
+      name="description"
+      content="BoysChanger is a free system-wide voice changer for Windows and macOS with race, gender, age, timbre, stacked effects, and 11-second prehear."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="./assets/logo-mark.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./assets/logo.png" />
+    <meta property="og:image" content="./assets/banner.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+    <header class="top">
+      <a class="logo" href="./">
+        <img src="./assets/logo-mark.svg" width="36" height="36" alt="" />
+        <span>BoysChanger</span>
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#setup">Setup</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/HyperlinksSpace/BoysChanger" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Windows & macOS · Open source · HyperlinksSpace</p>
+          <h1>BoysChanger</h1>
+          <p class="lede">
+            Turn your microphone into a character. Shape race, gender, age, and timbre, stack
+            effects, prehear the last 11 seconds, then push the result system-wide.
+          </p>
+          <div class="cta-row" id="download">
+            <a class="btn primary" id="dl-windows" href="https://github.com/HyperlinksSpace/BoysChanger/releases/latest">
+              Download for Windows
+            </a>
+            <a class="btn ghost" id="dl-mac" href="https://github.com/HyperlinksSpace/BoysChanger/releases/latest">
+              Download for macOS
+            </a>
+          </div>
+          <p class="release-meta" id="release-meta">Loading latest release…</p>
+        </div>
+        <div class="hero-visual">
+          <img
+            class="hero-logo"
+            src="./assets/logo.svg"
+            width="320"
+            height="320"
+            alt="BoysChanger logo — smiling waveform face"
+          />
+          <div class="waveform" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="features" id="features">
+        <h2>Built for live voice</h2>
+        <p class="section-lede">One engine, many characters — toggled with a single ON/OFF control.</p>
+        <ul class="feature-list">
+          <li>
+            <strong>Character stack</strong>
+            <span>Race, gender, age, timbre, amplifier, and volume.</span>
+          </li>
+          <li>
+            <strong>Layered effects</strong>
+            <span>Echo, wah-wah, distortion, reverb, chorus, robot, flanger, bitcrush — all at once.</span>
+          </li>
+          <li>
+            <strong>11s prehear</strong>
+            <span>Replay the last eleven seconds of processed voice before you go live.</span>
+          </li>
+          <li>
+            <strong>System-wide input</strong>
+            <span>Route through a virtual cable and set it as the OS microphone.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="setup" id="setup">
+        <h2>Quick setup</h2>
+        <div class="setup-grid">
+          <article>
+            <h3>Windows</h3>
+            <ol>
+              <li>Install <a href="https://vb-audio.com/Cable/" target="_blank" rel="noreferrer">VB-Cable</a> and reboot.</li>
+              <li>Install BoysChanger from the latest release.</li>
+              <li>Set <em>Output</em> to <strong>CABLE Input</strong>.</li>
+              <li>Click <strong>Apply as system input</strong> (or set default mic to <strong>CABLE Output</strong>).</li>
+              <li>Flip the changer <strong>ON</strong>.</li>
+            </ol>
+          </article>
+          <article>
+            <h3>macOS</h3>
+            <ol>
+              <li>Install <a href="https://existential.audio/blackhole/" target="_blank" rel="noreferrer">BlackHole 2ch</a>.</li>
+              <li>Install BoysChanger from the latest release.</li>
+              <li>Set <em>Output</em> to <strong>BlackHole 2ch</strong>.</li>
+              <li>Click <strong>Apply as system input</strong> (or set input to BlackHole in Sound settings).</li>
+              <li>Flip the changer <strong>ON</strong>.</li>
+            </ol>
+          </article>
+        </div>
+      </section>
+
+      <section class="downloads-panel">
+        <h2>Latest assets</h2>
+        <ul id="asset-list" class="asset-list">
+          <li>Fetching release files…</li>
+        </ul>
+        <p class="note">
+          Every push to <code>main</code> builds Windows and macOS installers and publishes a new
+          GitHub Release automatically.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <span>BoysChanger · MIT</span>
+      <a href="https://github.com/HyperlinksSpace/BoysChanger" target="_blank" rel="noreferrer">Source on GitHub</a>
+    </footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

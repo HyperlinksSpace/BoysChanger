@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="BoysChanger">
+  <rect width="512" height="512" rx="112" fill="#0f1a16"/>
+  <!-- left waves -->
+  <path d="M168 208c-18 22-18 74 0 96" fill="none" stroke="#d4ff4a" stroke-width="22" stroke-linecap="round"/>
+  <path d="M132 176c-34 40-34 120 0 160" fill="none" stroke="#d4ff4a" stroke-width="22" stroke-linecap="round"/>
+  <path d="M96 144c-50 58-50 166 0 224" fill="none" stroke="#d4ff4a" stroke-width="22" stroke-linecap="round"/>
+  <!-- right waves -->
+  <path d="M344 208c18 22 18 74 0 96" fill="none" stroke="#d4ff4a" stroke-width="22" stroke-linecap="round"/>
+  <path d="M380 176c34 40 34 120 0 160" fill="none" stroke="#d4ff4a" stroke-width="22" stroke-linecap="round"/>
+  <path d="M416 144c50 58 50 166 0 224" fill="none" stroke="#d4ff4a" stroke-width="22" stroke-linecap="round"/>
+  <!-- face -->
+  <circle cx="220" cy="236" r="18" fill="#d4ff4a"/>
+  <circle cx="292" cy="236" r="18" fill="#d4ff4a"/>
+  <path d="M214 292c24 28 60 28 84 0" fill="none" stroke="#d4ff4a" stroke-width="22" stroke-linecap="round"/>
+</svg>

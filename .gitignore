@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Build
+dist/
+dist-electron/
+release/
+out/
+
+# Local
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Electron
+*.exe
+*.dmg
+*.blockmap
