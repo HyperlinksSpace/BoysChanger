@@ -9,6 +9,7 @@ import {
   type VoiceSettings,
 } from './audio/types';
 import { PrehearPanel } from './components/PrehearPanel';
+import { SoundLibraryPanel } from './components/SoundLibraryPanel';
 import { LOCALES, detectLocale, t, type Locale, type MessageKey } from './i18n';
 import './styles.css';
 
@@ -201,11 +202,11 @@ export default function App() {
     }));
   };
 
-  const startEngine = async (enabled: boolean) => {
+  const startEngine = async (enabled: boolean, base: VoiceSettings = settings) => {
     setBusy(true);
     setStatus('statusStarting');
     try {
-      const next = { ...settings, enabled };
+      const next = { ...base, enabled };
       setSettings(next);
       await engineRef.current.start(next);
       setEngineOn(true);
@@ -227,14 +228,16 @@ export default function App() {
   };
 
   const toggleChanger = async () => {
-    if (!engineOn) {
-      await startEngine(true);
+    // OFF keeps the engine running in passthrough so Telegram/Discord still
+    // hear the real mic through the virtual cable (instead of silence).
+    if (engineOn && settings.enabled) {
+      const next = { ...settings, enabled: false };
+      setSettings(next);
+      engineRef.current.applySettings(next);
+      setStatus('statusPassthrough');
       return;
     }
-    const nextEnabled = !settings.enabled;
-    update('enabled', nextEnabled);
-    engineRef.current.applySettings({ ...settings, enabled: nextEnabled });
-    setStatus(nextEnabled ? 'statusOn' : 'statusOff');
+    await startEngine(true);
   };
 
   const applySystemWide = async () => {
@@ -242,16 +245,68 @@ export default function App() {
       setStatus('statusNeedDesktop');
       return;
     }
+
+    // Prefer virtual cable as output so processed audio reaches Telegram's mic path.
+    let nextSettings = settings;
+    if (!settings.outputDeviceId || !looksLikeVirtualOutput(
+      outputs.find((d) => d.deviceId === settings.outputDeviceId)?.label || '',
+    )) {
+      const virtual = outputs.find((d) => looksLikeVirtualOutput(d.label));
+      if (virtual) {
+        nextSettings = { ...settings, outputDeviceId: virtual.deviceId };
+        setSettings(nextSettings);
+      }
+    }
+
     const systemHint = platform === 'darwin' ? 'BlackHole' : 'CABLE Output';
     setStatus('statusApplying');
     const res = await window.boysChanger.setSystemInput(systemHint);
     setStatusKey('statusIdle');
     setStatusVars({});
-    setSystemMsg(res.message);
-    if (res.ok && !engineOn) {
-      await startEngine(true);
+    const tip = tr('chatMicTip');
+    setSystemMsg(res.ok ? `${res.message} — ${tip}` : `${res.message} — ${tip}`);
+    if (!engineOn) {
+      await startEngine(true, { ...nextSettings, enabled: true });
+    } else {
+      const active = { ...nextSettings, enabled: true };
+      setSettings(active);
+      engineRef.current.applySettings(active);
+      const sinkOk = await engineRef.current.applyOutputDevice(active.outputDeviceId);
+      if (!sinkOk) {
+        setSystemMsg(`${tr('sinkFailed')} — ${tip}`);
+      } else {
+        setStatus('statusOn');
+      }
     }
   };
+
+  const ensureEngineForSounds = useCallback(async () => {
+    if (engineOn) return true;
+    setBusy(true);
+    setStatus('statusStarting');
+    try {
+      const next = { ...settings, enabled: true };
+      setSettings(next);
+      await engineRef.current.start(next);
+      setEngineOn(true);
+      setStatus('statusOn');
+      return true;
+    } catch (e) {
+      setStatus('statusFailed', { error: e instanceof Error ? e.message : String(e) });
+      setEngineOn(false);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }, [engineOn, settings]);
+
+  const playLibraryUrl = useCallback(async (url: string) => {
+    await engineRef.current.playLibraryUrl(url);
+  }, []);
+
+  const stopLibrary = useCallback(() => {
+    engineRef.current.stopLibrary();
+  }, []);
 
   const meterWidth = Math.min(100, Math.round(level * 280));
   const logoSrc = './logo.png';
@@ -519,6 +574,22 @@ export default function App() {
           </div>
         </section>
       </div>
+
+      <SoundLibraryPanel
+        labels={{
+          title: tr('soundsTitle'),
+          hint: tr('soundsHint'),
+          upload: tr('soundsUpload'),
+          playing: tr('soundsPlaying'),
+          remove: tr('soundsRemove'),
+          empty: tr('soundsEmpty'),
+          needEngine: tr('soundsNeedEngine'),
+        }}
+        engineRunning={engineOn}
+        onPlayUrl={playLibraryUrl}
+        onStop={stopLibrary}
+        onEnsureEngine={ensureEngineForSounds}
+      />
 
       <footer className="footer">
         <span>

@@ -57,6 +57,15 @@ Optional: `Install-Module AudioDeviceCmdlets` enables automatic default-mic swit
 
 Optional: `brew install switchaudio-osx` for automatic input switching.
 
+### Telegram / Discord voice chat
+
+1. Output = **CABLE Input** (Win) / **BlackHole** (Mac)
+2. Click **Apply as system input** (or set OS default mic to **CABLE Output** / BlackHole)
+3. Turn changer **ON**
+4. In Telegram/Discord: set **Microphone** to **CABLE Output** / BlackHole, then **rejoin** the voice chat (apps often lock the mic at call start)
+
+Sound-library clips and prehear playback go to **both** your speakers and the virtual cable, so the other side hears them too.
+
 ## Develop
 
 ```bash

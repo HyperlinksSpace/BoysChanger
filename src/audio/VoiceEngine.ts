@@ -43,6 +43,8 @@ export class VoiceEngine {
   private destination: MediaStreamAudioDestinationNode | null = null;
   private outElement: HTMLAudioElement | null = null;
   private ring: RingBuffer | null = null;
+  private recorderNode: ScriptProcessorNode | null = null;
+  private keepAliveGain: GainNode | null = null;
   private prehearTimeData: Float32Array | null = null;
   private settings: VoiceSettings = { ...DEFAULT_SETTINGS, effects: { ...DEFAULT_SETTINGS.effects } };
   private effectEnabled: Partial<Record<EffectId, GainNode>> = {};
@@ -50,6 +52,7 @@ export class VoiceEngine {
   private levelListeners = new Set<LevelListener>();
   private prehearListeners = new Set<PrehearListener>();
   private raf = 0;
+  private lastPrehearEmit = 0;
   private running = false;
   private workletReady = false;
 
@@ -62,6 +65,14 @@ export class VoiceEngine {
   private prehearStartedAt = 0;
   private prehearDuration = 0;
   private peaksCache: Float32Array = new Float32Array(128) as Float32Array;
+
+  /** One-shot clips (sound library) mixed to cable + local speakers */
+  private libraryGain: GainNode | null = null;
+  private libraryLocalGain: GainNode | null = null;
+  private librarySource: AudioBufferSourceNode | null = null;
+  private libraryPlaying = false;
+  private outKeepAlive: ReturnType<typeof setInterval> | null = null;
+  private lastSinkOk = false;
 
   get isRunning() {
     return this.running;
@@ -124,17 +135,17 @@ export class VoiceEngine {
     this.workletReady = await loadPitchWorklet(this.ctx);
 
     const wantsMonitor = settings.monitorLocally;
+    // Do NOT constrain sampleRate — it often fails on Windows and leaves the engine silent.
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         deviceId:
           settings.inputDeviceId && settings.inputDeviceId !== 'default'
             ? { exact: settings.inputDeviceId }
             : undefined,
-        echoCancellation: wantsMonitor || true,
+        echoCancellation: Boolean(wantsMonitor),
         noiseSuppression: true,
         autoGainControl: false,
         channelCount: 1,
-        sampleRate: this.ctx.sampleRate,
       },
       video: false,
     });
@@ -216,26 +227,55 @@ export class VoiceEngine {
 
     this.masterGain.connect(this.analyser);
 
+    // Silent keep-alive so the graph keeps processing even when monitor is muted
+    // and the virtual-cable HTMLAudioElement is not pulling samples.
+    this.keepAliveGain = this.ctx.createGain();
+    this.keepAliveGain.gain.value = 0;
+    this.masterGain.connect(this.keepAliveGain);
+    this.keepAliveGain.connect(this.ctx.destination);
+
     this.destination = this.ctx.createMediaStreamDestination();
     this.masterGain.connect(this.destination);
     this.outElement = new Audio();
     this.outElement.autoplay = true;
+    this.outElement.volume = 1;
+    this.outElement.muted = false;
     this.outElement.srcObject = this.destination.stream;
 
     this.analyser.connect(this.monitorGain);
     this.monitorGain.connect(this.ctx.destination);
 
-    await this.applyOutputDevice(settings.outputDeviceId);
-    try {
-      await this.outElement.play();
-    } catch {
-      /* */
-    }
+    // Sound library + prehear: both local speakers AND virtual-cable stream (Telegram mic)
+    this.libraryGain = this.ctx.createGain();
+    this.libraryGain.gain.value = 1;
+    this.libraryLocalGain = this.ctx.createGain();
+    this.libraryLocalGain.gain.value = 0.9;
+    this.libraryGain.connect(this.destination);
+    this.libraryGain.connect(this.libraryLocalGain);
+    this.libraryLocalGain.connect(this.ctx.destination);
 
     this.ring = new RingBuffer(this.ctx.sampleRate, PREHEAR_SECONDS);
     this.prehearGain = this.ctx.createGain();
     this.prehearGain.gain.value = 1;
     this.prehearGain.connect(this.ctx.destination);
+    this.prehearGain.connect(this.destination);
+
+    await this.applyOutputDevice(settings.outputDeviceId);
+    await this.ensureCablePlaying();
+    this.startOutKeepAlive();
+
+    // Continuous PCM capture (Analyser+rAF alone is unreliable for a rolling buffer).
+    this.recorderNode = this.ctx.createScriptProcessor(4096, 1, 1);
+    this.masterGain.connect(this.recorderNode);
+    this.recorderNode.connect(this.keepAliveGain);
+    this.recorderNode.onaudioprocess = (ev) => {
+      if (!this.ring) return;
+      const input = ev.inputBuffer.getChannelData(0);
+      this.ring.push(input);
+      if (!this.prehearPlaying || this.prehearPaused) {
+        this.peaksCache = computePeaks(this.ring.snapshot(), 160);
+      }
+    };
 
     this.applySettings(this.settings);
     this.running = true;
@@ -481,13 +521,97 @@ export class VoiceEngine {
     }
   }
 
-  async applyOutputDevice(deviceId: string) {
-    if (!this.outElement?.setSinkId) return;
+  async applyOutputDevice(deviceId: string): Promise<boolean> {
+    if (!this.outElement) return false;
+    const sinkId = deviceId || '';
     try {
-      await this.outElement.setSinkId(deviceId || '');
+      if (typeof this.outElement.setSinkId === 'function') {
+        await this.outElement.setSinkId(sinkId);
+      }
+      this.lastSinkOk = true;
+      await this.ensureCablePlaying();
+      return true;
     } catch (e) {
+      this.lastSinkOk = false;
       console.warn('setSinkId failed', e);
+      return false;
     }
+  }
+
+  get cableSinkOk() {
+    return this.lastSinkOk;
+  }
+
+  private async ensureCablePlaying() {
+    if (!this.outElement) return;
+    try {
+      if (this.ctx?.state === 'suspended') await this.ctx.resume();
+      this.outElement.muted = false;
+      this.outElement.volume = 1;
+      if (this.outElement.paused) await this.outElement.play();
+    } catch {
+      /* autoplay / sink races */
+    }
+  }
+
+  private startOutKeepAlive() {
+    this.stopOutKeepAlive();
+    this.outKeepAlive = setInterval(() => {
+      void this.ensureCablePlaying();
+    }, 2000);
+  }
+
+  private stopOutKeepAlive() {
+    if (this.outKeepAlive) {
+      clearInterval(this.outKeepAlive);
+      this.outKeepAlive = null;
+    }
+  }
+
+  /**
+   * Play a library clip into BOTH the virtual-cable output (system mic / Telegram)
+   * and local speakers.
+   */
+  async playLibraryUrl(url: string): Promise<void> {
+    if (!this.ctx || !this.libraryGain || !this.running) {
+      throw new Error('Engine is not running — turn the changer ON first');
+    }
+    await this.ensureCablePlaying();
+    this.stopLibrary();
+
+    const res = await fetch(url);
+    const raw = await res.arrayBuffer();
+    const audioBuffer = await this.ctx.decodeAudioData(raw.slice(0));
+
+    const src = this.ctx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.connect(this.libraryGain);
+    src.onended = () => {
+      if (this.librarySource === src) {
+        this.librarySource = null;
+        this.libraryPlaying = false;
+      }
+    };
+    src.start(0);
+    this.librarySource = src;
+    this.libraryPlaying = true;
+  }
+
+  stopLibrary() {
+    if (this.librarySource) {
+      try {
+        this.librarySource.onended = null;
+        this.librarySource.stop();
+      } catch {
+        /* */
+      }
+      this.librarySource = null;
+    }
+    this.libraryPlaying = false;
+  }
+
+  get isLibraryPlaying() {
+    return this.libraryPlaying;
   }
 
   /** Capture current ring into a playable buffer and refresh peaks. */
@@ -586,22 +710,10 @@ export class VoiceEngine {
   private tickLevels() {
     cancelAnimationFrame(this.raf);
     const loop = () => {
-      if (!this.analyser || !this.prehearTimeData || !this.ring) return;
-      // TS DOM Float32Array generic mismatch
+      if (!this.analyser || !this.prehearTimeData) return;
       (this.analyser as unknown as { getFloatTimeDomainData(a: Float32Array): void }).getFloatTimeDomainData(
         this.prehearTimeData,
       );
-      const hop = Math.min(
-        this.prehearTimeData.length,
-        Math.max(128, Math.floor((this.ctx?.sampleRate ?? 48000) / 55)),
-      );
-      this.ring.push(this.prehearTimeData.subarray(this.prehearTimeData.length - hop));
-
-      // Live peaks for timeline while not in dedicated playback prepare
-      if (!this.prehearPlaying || this.prehearPaused) {
-        const snap = this.ring.snapshot();
-        if (snap.length > 64) this.peaksCache = computePeaks(snap, 160);
-      }
 
       let sum = 0;
       for (let i = 0; i < this.prehearTimeData.length; i++) {
@@ -609,7 +721,12 @@ export class VoiceEngine {
         sum += v * v;
       }
       this.levelListeners.forEach((cb) => cb(Math.sqrt(sum / this.prehearTimeData!.length)));
-      this.emitPrehear();
+
+      const now = performance.now();
+      if (now - this.lastPrehearEmit > 80) {
+        this.lastPrehearEmit = now;
+        this.emitPrehear();
+      }
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
@@ -617,8 +734,19 @@ export class VoiceEngine {
 
   async stop() {
     cancelAnimationFrame(this.raf);
+    this.stopOutKeepAlive();
+    this.stopLibrary();
     this.stopPrehear();
     this.teardownEffects();
+    if (this.recorderNode) {
+      this.recorderNode.onaudioprocess = null;
+      try {
+        this.recorderNode.disconnect();
+      } catch {
+        /* */
+      }
+      this.recorderNode = null;
+    }
     if (this.outElement) {
       this.outElement.pause();
       this.outElement.srcObject = null;
@@ -636,10 +764,16 @@ export class VoiceEngine {
     this.ctx = null;
     this.source = null;
     this.ring = null;
+    this.keepAliveGain = null;
+    this.libraryGain = null;
+    this.libraryLocalGain = null;
     this.prehearTimeData = null;
     this.prehearBuffer = null;
+    this.prehearGain = null;
     this.pitchNode = null;
     this.running = false;
+    this.lastSinkOk = false;
+    this.peaksCache = new Float32Array(160) as Float32Array;
     this.emitPrehear();
   }
 }
