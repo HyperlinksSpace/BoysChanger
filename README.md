@@ -9,6 +9,13 @@
 </p>
 
 <p align="center">
+  <strong>English</strong> ·
+  <a href="README.ru.md">Русский</a> ·
+  <a href="README.zh.md">中文</a> ·
+  <a href="brand/TELEGRAM_ANNOUNCE.md">📣 Telegram announce</a>
+</p>
+
+<p align="center">
   <strong>System-wide voice changer for Windows and macOS</strong><br/>
   by <a href="https://github.com/HyperlinksSpace">HyperlinksSpace</a>
 </p>
@@ -16,7 +23,8 @@
 <p align="center">
   <a href="https://hyperlinksspace.github.io/BoysChanger/">Website</a> ·
   <a href="https://github.com/HyperlinksSpace/BoysChanger/releases/latest">Downloads</a> ·
-  <a href="https://www.hyperlinks.space/">Hyperlinks Space</a>
+  <a href="https://www.hyperlinks.space/">Hyperlinks Space</a> ·
+  <a href="brand/boyschanger-social.png">Social image</a>
 </p>
 
 Shape race, gender, age, timbre, amplifier, and volume; stack echo, wah-wah, distortion, reverb, chorus, robot, flanger, and bitcrush; prehear the last **11 seconds**; route the result through a virtual cable as your OS microphone.
@@ -29,6 +37,7 @@ Shape race, gender, age, timbre, amplifier, and volume; stack echo, wah-wah, dis
 - **Character controls**: race, gender, age, timbre, amplifier, volume
 - **Effects**: all can be enabled at the same time, with a shared mix slider
 - **Prehear**: replay the last 11 seconds of processed voice
+- **Sound library**: built-in FX + upload your own MP3 (plays locally and into the virtual cable)
 - **System-wide routing**: output to VB-Cable (Windows) or BlackHole (macOS), then set it as the system input
 - **Languages**: English, 中文, Русский (follows system language on first launch)
 - **Auto-update**: checks GitHub Releases and installs updates automatically
@@ -41,9 +50,10 @@ Shape race, gender, age, timbre, amplifier, and volume; stack echo, wah-wah, dis
 
 1. Install [VB-Cable](https://vb-audio.com/Cable/) and reboot
 2. Install BoysChanger from [Releases](https://github.com/HyperlinksSpace/BoysChanger/releases)
-3. In the app, set **Output** to **CABLE Input**
-4. Click **Apply as system input** (or set Windows default recording device to **CABLE Output**)
-5. Turn the changer **ON**
+3. In the app, set **Input** to your **real hardware mic** (not Voicemod / CABLE)
+4. Set **Output** to **CABLE Input**
+5. Click **Apply as system input** (or set Windows default recording device to **CABLE Output**)
+6. Turn the changer **ON**
 
 Optional: `Install-Module AudioDeviceCmdlets` enables automatic default-mic switching from the app.
 
@@ -86,6 +96,12 @@ JSON includes `rms`, `peak`, `seconds`, and `silent` for quick diagnosis.
 
 Packaged builds poll GitHub Releases about every **30 minutes**, retry on flaky network errors (`ERR_CONNECTION_CLOSED`, etc.), fall back to the GitHub API, download updates automatically, and relaunch into the new version. Public repos need no token. Optional: set `GH_TOKEN` / `GITHUB_TOKEN` (repo scope) if GitHub rate-limits or blocks anonymous requests on your network.
 
+## Social / Telegram
+
+- 📣 Ready-to-paste Russian Telegram post: [`brand/TELEGRAM_ANNOUNCE.md`](brand/TELEGRAM_ANNOUNCE.md)
+- Multilingual announce text: [`brand/ANNOUNCE.md`](brand/ANNOUNCE.md)
+- Social image: [`brand/boyschanger-social.png`](brand/boyschanger-social.png)
+
 ## Develop
 
 ```bash
@@ -116,6 +132,7 @@ Site: https://hyperlinksspace.github.io/BoysChanger/
 - Mark (SVG): [`brand/logo.svg`](brand/logo.svg) — scales from favicon to app icon
 - Compact mark: [`brand/logo-mark.svg`](brand/logo-mark.svg)
 - Banner: [`brand/banner.png`](brand/banner.png)
+- Social announce image: [`brand/boyschanger-social.png`](brand/boyschanger-social.png)
 
 ## License
 

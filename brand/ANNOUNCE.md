@@ -1,7 +1,9 @@
 # BoysChanger — social announce
 
-**Link:** https://hyperlinksspace.github.io/BoysChanger/  
-**Image:** `brand/boyschanger-social.png`
+**Website / downloads:** https://hyperlinksspace.github.io/BoysChanger/  
+**Latest release:** https://github.com/HyperlinksSpace/BoysChanger/releases/latest  
+**Image:** [`boyschanger-social.png`](boyschanger-social.png)  
+**Telegram copy-paste (RU + emojis):** [`TELEGRAM_ANNOUNCE.md`](TELEGRAM_ANNOUNCE.md)
 
 ---
 
@@ -15,8 +17,6 @@ BoysChanger — системный войс-чейнджер для Windows и m
 
 Сайт и загрузки: https://hyperlinksspace.github.io/BoysChanger/
 
----
-
 ### English
 
 BoysChanger — a system-wide voice changer for Windows and macOS.
@@ -24,8 +24,6 @@ BoysChanger — a system-wide voice changer for Windows and macOS.
 Shape race, gender, age, and timbre, stack effects, prehear the last 11 seconds, and route the result as your system microphone.
 
 Site & downloads: https://hyperlinksspace.github.io/BoysChanger/
-
----
 
 ### 中文
 
