@@ -37,10 +37,10 @@ function resolveIconPath() {
 function createWindow() {
   const icon = resolveIconPath();
   mainWindow = new BrowserWindow({
-    width: 980,
-    height: 740,
-    minWidth: 820,
-    minHeight: 620,
+    width: 920,
+    height: 680,
+    minWidth: 760,
+    minHeight: 560,
     title: `BoysChanger v${app.getVersion()}`,
     backgroundColor: '#0c1210',
     ...(icon ? { icon } : {}),

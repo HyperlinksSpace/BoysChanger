@@ -250,36 +250,33 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="hero">
-        <div className="brand-block">
-          <div className="brand-row">
-            <img className="brand-logo" src={logoSrc} width={72} height={72} alt="BoysChanger" />
-            <div>
-              <p className="eyebrow">{tr('eyebrow')}</p>
-              <h1 className="brand">
-                BoysChanger
-                <span className="version">v{version}</span>
-              </h1>
-            </div>
-          </div>
-          <p className="tagline">{tr('tagline')}</p>
-          <div className="lang-row">
-            <label>
-              {tr('language')}
-              <select
-                value={locale}
-                onChange={(e) => setLocale(e.target.value as Locale)}
-              >
-                {LOCALES.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {updateNote ? <span className="update-note">{updateNote}</span> : null}
+      <header className="topbar">
+        <div className="brand-row">
+          <img className="brand-logo" src={logoSrc} width={44} height={44} alt="BoysChanger" />
+          <div className="brand-text">
+            <h1 className="brand">
+              BoysChanger
+              <span className="version">v{version}</span>
+            </h1>
+            <p className="eyebrow">{tr('eyebrow')}</p>
           </div>
         </div>
+        <div className="topbar-right">
+          <label className="lang-inline">
+            <span>{tr('language')}</span>
+            <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
+              {LOCALES.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {updateNote ? <span className="update-note">{updateNote}</span> : null}
+        </div>
+      </header>
+
+      <section className="control-strip">
         <div className="power-block">
           <button
             type="button"
@@ -289,17 +286,27 @@ export default function App() {
           >
             {settings.enabled && engineOn ? 'ON' : 'OFF'}
           </button>
-          <p className="power-hint">{tr('powerHint')}</p>
-          <div className="meter" aria-hidden>
-            <div className="meter-fill" style={{ width: `${meterWidth}%` }} />
+          <div className="power-meta">
+            <p className="power-hint">{tr('powerHint')}</p>
+            <div className="meter" aria-hidden>
+              <div className="meter-fill" style={{ width: `${meterWidth}%` }} />
+            </div>
+            <p className="status">{tr(statusKey, statusVars)}</p>
           </div>
-          <p className="status">{tr(statusKey, statusVars)}</p>
         </div>
-      </header>
+        <div className="prehear-block">
+          <button type="button" className="primary prehear-btn" onClick={() => void onPrehear()}>
+            {tr('prehearBtn')}
+          </button>
+          <p className="prehear-info">{prehearInfo || tr('prehearHint')}</p>
+        </div>
+      </section>
 
-      <section className="panel devices">
-        <h2>{tr('audioRouting')}</h2>
-        <p className="hint">{platform === 'darwin' ? tr('hintMac') : tr('hintWin')}</p>
+      <section className="panel compact devices">
+        <div className="panel-head">
+          <h2>{tr('audioRouting')}</h2>
+          <p className="hint">{platform === 'darwin' ? tr('hintMac') : tr('hintWin')}</p>
+        </div>
         <div className="grid-2">
           <label>
             {tr('inputMic')}
@@ -364,136 +371,125 @@ export default function App() {
         </div>
       </section>
 
-      <section className="panel character">
-        <h2>{tr('voiceCharacter')}</h2>
-        <div className="grid-3">
-          <fieldset>
-            <legend>{tr('race')}</legend>
-            <div className="chips">
-              {RACES.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  className={settings.race === r ? 'chip active' : 'chip'}
-                  onClick={() => update('race', r)}
-                >
-                  {tr(`race_${r}` as MessageKey)}
-                </button>
-              ))}
+      <div className="two-col">
+        <section className="panel compact character">
+          <h2>{tr('voiceCharacter')}</h2>
+          <div className="preset-rows">
+            <div className="preset-row">
+              <span className="preset-label">{tr('race')}</span>
+              <div className="chips">
+                {RACES.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    className={settings.race === r ? 'chip active' : 'chip'}
+                    onClick={() => update('race', r)}
+                  >
+                    {tr(`race_${r}` as MessageKey)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </fieldset>
-          <fieldset>
-            <legend>{tr('gender')}</legend>
-            <div className="chips">
-              {GENDERS.map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  className={settings.gender === g ? 'chip active' : 'chip'}
-                  onClick={() => update('gender', g)}
-                >
-                  {tr(`gender_${g}` as MessageKey)}
-                </button>
-              ))}
+            <div className="preset-row">
+              <span className="preset-label">{tr('gender')}</span>
+              <div className="chips">
+                {GENDERS.map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    className={settings.gender === g ? 'chip active' : 'chip'}
+                    onClick={() => update('gender', g)}
+                  >
+                    {tr(`gender_${g}` as MessageKey)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </fieldset>
-          <fieldset>
-            <legend>{tr('age')}</legend>
-            <div className="chips">
-              {AGES.map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  className={settings.age === a ? 'chip active' : 'chip'}
-                  onClick={() => update('age', a)}
-                >
-                  {tr(`age_${a}` as MessageKey)}
-                </button>
-              ))}
+            <div className="preset-row">
+              <span className="preset-label">{tr('age')}</span>
+              <div className="chips">
+                {AGES.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    className={settings.age === a ? 'chip active' : 'chip'}
+                    onClick={() => update('age', a)}
+                  >
+                    {tr(`age_${a}` as MessageKey)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </fieldset>
-        </div>
+          </div>
+          <div className="sliders">
+            <label>
+              <span>
+                {tr('timbre')} <em>{settings.timbre}</em>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={settings.timbre}
+                onChange={(e) => update('timbre', Number(e.target.value))}
+              />
+            </label>
+            <label>
+              <span>
+                {tr('amplifier')} <em>{settings.amplifier}</em>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={settings.amplifier}
+                onChange={(e) => update('amplifier', Number(e.target.value))}
+              />
+            </label>
+            <label>
+              <span>
+                {tr('volume')} <em>{settings.volume}</em>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={settings.volume}
+                onChange={(e) => update('volume', Number(e.target.value))}
+              />
+            </label>
+            <label>
+              <span>
+                {tr('effectsMix')} <em>{settings.effectMix}</em>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={settings.effectMix}
+                onChange={(e) => update('effectMix', Number(e.target.value))}
+              />
+            </label>
+          </div>
+        </section>
 
-        <div className="sliders">
-          <label>
-            <span>
-              {tr('timbre')} <em>{settings.timbre}</em>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={settings.timbre}
-              onChange={(e) => update('timbre', Number(e.target.value))}
-            />
-          </label>
-          <label>
-            <span>
-              {tr('amplifier')} <em>{settings.amplifier}</em>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={settings.amplifier}
-              onChange={(e) => update('amplifier', Number(e.target.value))}
-            />
-          </label>
-          <label>
-            <span>
-              {tr('volume')} <em>{settings.volume}</em>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={settings.volume}
-              onChange={(e) => update('volume', Number(e.target.value))}
-            />
-          </label>
-          <label>
-            <span>
-              {tr('effectsMix')} <em>{settings.effectMix}</em>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={settings.effectMix}
-              onChange={(e) => update('effectMix', Number(e.target.value))}
-            />
-          </label>
-        </div>
-      </section>
-
-      <section className="panel effects">
-        <h2>{tr('effects')}</h2>
-        <p className="hint">{tr('effectsHint')}</p>
-        <div className="effects-grid">
-          {FX_IDS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className={settings.effects[id] ? 'fx on' : 'fx'}
-              onClick={() => toggleEffect(id)}
-            >
-              <strong>{tr(`fx_${id}` as MessageKey)}</strong>
-              <span>{tr(`fx_${id}_desc` as MessageKey)}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel prehear">
-        <h2>{tr('prehear')}</h2>
-        <p className="hint">{tr('prehearHint')}</p>
-        <div className="row actions">
-          <button type="button" className="primary" onClick={() => void onPrehear()}>
-            {tr('prehearBtn')}
-          </button>
-          <span className="prehear-info">{prehearInfo}</span>
-        </div>
-      </section>
+        <section className="panel compact effects">
+          <h2>{tr('effects')}</h2>
+          <div className="effects-grid">
+            {FX_IDS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                className={settings.effects[id] ? 'fx on' : 'fx'}
+                onClick={() => toggleEffect(id)}
+                title={tr(`fx_${id}_desc` as MessageKey)}
+              >
+                <strong>{tr(`fx_${id}` as MessageKey)}</strong>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
 
       <footer className="footer">
         <span>
