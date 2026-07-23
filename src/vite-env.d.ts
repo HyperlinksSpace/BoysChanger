@@ -15,6 +15,10 @@ declare global {
   interface MediaTrackConstraintSet {
     deviceId?: string | ConstrainDOMString;
   }
+
+  interface ImportMetaEnv {
+    readonly VITE_APP_VERSION?: string;
+  }
 }
 
 declare module '*.svg' {

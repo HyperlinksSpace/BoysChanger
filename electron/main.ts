@@ -9,6 +9,7 @@ import {
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { autoUpdater } from 'electron-updater';
 
 const execFileAsync = promisify(execFile);
 
@@ -23,21 +24,24 @@ const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 function resolveIconPath() {
   const candidates = [
+    path.join(__dirname, '../build/icon.ico'),
     path.join(__dirname, '../build/icon.png'),
+    path.join(process.resourcesPath || '', 'icon.png'),
+    path.join(process.env.VITE_PUBLIC ?? '', 'icon.png'),
     path.join(process.env.VITE_PUBLIC ?? '', 'logo.png'),
     path.join(__dirname, '../public/logo.png'),
   ];
-  return candidates.find((p) => fs.existsSync(p));
+  return candidates.find((p) => p && fs.existsSync(p));
 }
 
 function createWindow() {
   const icon = resolveIconPath();
   mainWindow = new BrowserWindow({
     width: 980,
-    height: 720,
+    height: 740,
     minWidth: 820,
-    minHeight: 600,
-    title: 'BoysChanger',
+    minHeight: 620,
+    title: `BoysChanger v${app.getVersion()}`,
     backgroundColor: '#0c1210',
     ...(icon ? { icon } : {}),
     webPreferences: {
@@ -64,6 +68,42 @@ function createWindow() {
   }
 }
 
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = false;
+
+  const send = (status: string, version?: string, message?: string) => {
+    mainWindow?.webContents.send('update-status', { status, version, message });
+  };
+
+  autoUpdater.on('checking-for-update', () => send('checking'));
+  autoUpdater.on('update-available', (info) => send('available', info.version));
+  autoUpdater.on('update-not-available', () => send('not-available'));
+  autoUpdater.on('error', (err) => send('error', undefined, String(err)));
+  autoUpdater.on('download-progress', () => send('available'));
+  autoUpdater.on('update-downloaded', (info) => {
+    send('downloaded', info.version);
+    setTimeout(() => {
+      autoUpdater.quitAndInstall(false, true);
+    }, 1500);
+  });
+
+  setTimeout(() => {
+    void autoUpdater.checkForUpdates().catch(() => {
+      /* ignore offline */
+    });
+  }, 4000);
+
+  setInterval(() => {
+    void autoUpdater.checkForUpdates().catch(() => {
+      /* ignore */
+    });
+  }, 1000 * 60 * 60 * 4);
+}
+
 async function ensureMicPermission(): Promise<boolean> {
   if (process.platform === 'darwin') {
     const status = systemPreferences.getMediaAccessStatus('microphone');
@@ -73,12 +113,10 @@ async function ensureMicPermission(): Promise<boolean> {
   return true;
 }
 
-/** Best-effort: set OS default input to a virtual cable so the changer is system-wide. */
 async function setSystemInputDevice(deviceHint: string): Promise<{ ok: boolean; message: string }> {
   const hint = deviceHint.toLowerCase();
 
   if (process.platform === 'win32') {
-    // Prefer AudioDeviceCmdlets if installed; fall back to PowerShell COM enumeration tip.
     const script = `
 $ErrorActionPreference = 'Stop'
 try {
@@ -105,18 +143,17 @@ try {
         ok: false,
         message:
           out.replace(/^ERR:/, '') ||
-          'Could not set system input. Install VB-Cable, then optionally AudioDeviceCmdlets (Install-Module AudioDeviceCmdlets). Or set “CABLE Output” as default mic in Windows Sound settings.',
+          'Could not set system input. Install VB-Cable, then optionally AudioDeviceCmdlets.',
       };
     } catch (e) {
       return {
         ok: false,
-        message: `Windows system input change failed. Manually set default recording device to CABLE Output. (${String(e)})`,
+        message: `Windows system input change failed. Set default recording device to CABLE Output. (${String(e)})`,
       };
     }
   }
 
   if (process.platform === 'darwin') {
-    // Prefer SwitchAudioSource if present; else AppleScript via CoreAudio is unreliable without helper.
     try {
       const { stdout: list } = await execFileAsync('SwitchAudioSource', ['-a', '-t', 'input']);
       const lines = list.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -127,7 +164,7 @@ try {
         return {
           ok: false,
           message:
-            'Virtual input not found. Install BlackHole 2ch, then set it as the system microphone in Sound settings.',
+            'Virtual input not found. Install BlackHole 2ch, then set it as the system microphone.',
         };
       }
       await execFileAsync('SwitchAudioSource', ['-t', 'input', '-s', match]);
@@ -136,7 +173,7 @@ try {
       return {
         ok: false,
         message:
-          'Install BlackHole 2ch and optionally SwitchAudioSource (brew install switchaudio-osx), or set BlackHole as input in System Settings → Sound.',
+          'Install BlackHole 2ch and optionally SwitchAudioSource (brew install switchaudio-osx).',
       };
     }
   }
@@ -157,6 +194,7 @@ function detectVirtualCableHints(): string[] {
 app.whenReady().then(async () => {
   await ensureMicPermission();
   createWindow();
+  setupAutoUpdater();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -168,15 +206,22 @@ app.on('window-all-closed', () => {
 });
 
 ipcMain.handle('platform', () => process.platform);
-
+ipcMain.handle('get-version', () => app.getVersion());
+ipcMain.handle('get-locale', () => app.getLocale());
 ipcMain.handle('ensure-mic-permission', async () => ensureMicPermission());
-
 ipcMain.handle('virtual-cable-hints', () => detectVirtualCableHints());
-
 ipcMain.handle('set-system-input', async (_evt, deviceHint: string) =>
   setSystemInputDevice(deviceHint || (detectVirtualCableHints()[0] ?? '')),
 );
-
 ipcMain.handle('open-external', async (_evt, url: string) => {
   await shell.openExternal(url);
+});
+ipcMain.handle('check-for-updates', async () => {
+  if (!app.isPackaged) return { ok: false, message: 'dev' };
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { ok: true, version: result?.updateInfo?.version };
+  } catch (e) {
+    return { ok: false, message: String(e) };
+  }
 });

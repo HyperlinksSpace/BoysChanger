@@ -99,7 +99,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist-assets
-          find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \) -print -exec cp {} dist-assets/ \;
+          find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' -o -name '*.yml' -o -name '*.yaml' -o -name '*.blockmap' \) -print -exec cp {} dist-assets/ \;
           ls -lah dist-assets
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

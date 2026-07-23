@@ -19,7 +19,7 @@ export class RingBuffer {
     return this.filled / this.sampleRate;
   }
 
-  push(chunk: Float32Array) {
+  push(chunk: ArrayLike<number>) {
     for (let i = 0; i < chunk.length; i++) {
       this.samples[this.write] = chunk[i];
       this.write = (this.write + 1) % this.samples.length;

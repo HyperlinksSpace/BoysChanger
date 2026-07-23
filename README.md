@@ -28,6 +28,8 @@ Shape race, gender, age, timbre, amplifier, and volume; stack echo, wah-wah, dis
 - **Effects**: all can be enabled at the same time, with a shared mix slider
 - **Prehear**: replay the last 11 seconds of processed voice
 - **System-wide routing**: output to VB-Cable (Windows) or BlackHole (macOS), then set it as the system input
+- **Languages**: English, 中文, Русский (follows system language on first launch)
+- **Auto-update**: checks GitHub Releases and installs updates automatically
 - **Auto-release**: every push to `main` builds installers and publishes a GitHub Release
 - **GitHub Pages** site with presentation + download links (`/site`)
 

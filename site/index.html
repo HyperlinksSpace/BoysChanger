@@ -23,35 +23,43 @@
     <div class="noise" aria-hidden="true"></div>
     <header class="top">
       <a class="logo" href="./">
-        <img src="./assets/logo-mark.svg" width="36" height="36" alt="" />
+        <img src="./assets/logo.svg" width="36" height="36" alt="" />
         <span>BoysChanger</span>
       </a>
       <nav>
-        <a href="#features">Features</a>
-        <a href="#setup">Setup</a>
-        <a href="#download">Download</a>
-        <a href="https://github.com/HyperlinksSpace/BoysChanger" target="_blank" rel="noreferrer">GitHub</a>
+        <a href="#features" data-i18n="navFeatures">Features</a>
+        <a href="#setup" data-i18n="navSetup">Setup</a>
+        <a href="#download" data-i18n="navDownload">Download</a>
+        <a href="https://github.com/HyperlinksSpace/BoysChanger" target="_blank" rel="noreferrer" data-i18n="navGithub">GitHub</a>
+        <label class="lang-wrap">
+          <span class="visually-hidden" data-i18n="language">Language</span>
+          <select id="lang-select" aria-label="Language">
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+            <option value="ru">Русский</option>
+          </select>
+        </label>
       </nav>
     </header>
 
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Windows & macOS · Open source · HyperlinksSpace</p>
+          <p class="eyebrow" data-i18n="eyebrow">Windows & macOS · Open source · HyperlinksSpace</p>
           <h1>BoysChanger</h1>
-          <p class="lede">
+          <p class="lede" data-i18n="lede">
             Turn your microphone into a character. Shape race, gender, age, and timbre, stack
             effects, prehear the last 11 seconds, then push the result system-wide.
           </p>
           <div class="cta-row" id="download">
-            <a class="btn primary" id="dl-windows" href="https://github.com/HyperlinksSpace/BoysChanger/releases/latest">
+            <a class="btn primary" id="dl-windows" href="https://github.com/HyperlinksSpace/BoysChanger/releases/latest" data-i18n="dlWin">
               Download for Windows
             </a>
-            <a class="btn ghost" id="dl-mac" href="https://github.com/HyperlinksSpace/BoysChanger/releases/latest">
+            <a class="btn ghost" id="dl-mac" href="https://github.com/HyperlinksSpace/BoysChanger/releases/latest" data-i18n="dlMac">
               Download for macOS
             </a>
           </div>
-          <p class="release-meta" id="release-meta">Loading latest release…</p>
+          <p class="release-meta" id="release-meta" data-i18n="loading">Loading latest release…</p>
         </div>
         <div class="hero-visual">
           <img
@@ -59,7 +67,7 @@
             src="./assets/logo.svg"
             width="320"
             height="320"
-            alt="BoysChanger logo — smiling waveform face"
+            alt="BoysChanger logo"
           />
           <div class="waveform" aria-hidden="true">
             <span></span><span></span><span></span><span></span><span></span>
@@ -69,33 +77,33 @@
       </section>
 
       <section class="features" id="features">
-        <h2>Built for live voice</h2>
-        <p class="section-lede">One engine, many characters — toggled with a single ON/OFF control.</p>
+        <h2 data-i18n="featuresTitle">Built for live voice</h2>
+        <p class="section-lede" data-i18n="featuresLede">One engine, many characters — toggled with a single ON/OFF control.</p>
         <ul class="feature-list">
           <li>
-            <strong>Character stack</strong>
-            <span>Race, gender, age, timbre, amplifier, and volume.</span>
+            <strong data-i18n="f1t">Character stack</strong>
+            <span data-i18n="f1d">Race, gender, age, timbre, amplifier, and volume.</span>
           </li>
           <li>
-            <strong>Layered effects</strong>
-            <span>Echo, wah-wah, distortion, reverb, chorus, robot, flanger, bitcrush — all at once.</span>
+            <strong data-i18n="f2t">Layered effects</strong>
+            <span data-i18n="f2d">Echo, wah-wah, distortion, reverb, chorus, robot, flanger, bitcrush — all at once.</span>
           </li>
           <li>
-            <strong>11s prehear</strong>
-            <span>Replay the last eleven seconds of processed voice before you go live.</span>
+            <strong data-i18n="f3t">11s prehear</strong>
+            <span data-i18n="f3d">Replay the last eleven seconds of processed voice before you go live.</span>
           </li>
           <li>
-            <strong>System-wide input</strong>
-            <span>Route through a virtual cable and set it as the OS microphone.</span>
+            <strong data-i18n="f4t">System-wide input</strong>
+            <span data-i18n="f4d">Route through a virtual cable and set it as the OS microphone.</span>
           </li>
         </ul>
       </section>
 
       <section class="setup" id="setup">
-        <h2>Quick setup</h2>
+        <h2 data-i18n="setupTitle">Quick setup</h2>
         <div class="setup-grid">
           <article>
-            <h3>Windows</h3>
+            <h3 data-i18n="winTitle">Windows</h3>
             <ol>
               <li>Install <a href="https://vb-audio.com/Cable/" target="_blank" rel="noreferrer">VB-Cable</a> and reboot.</li>
               <li>Install BoysChanger from the latest release.</li>
@@ -105,7 +113,7 @@
             </ol>
           </article>
           <article>
-            <h3>macOS</h3>
+            <h3 data-i18n="macTitle">macOS</h3>
             <ol>
               <li>Install <a href="https://existential.audio/blackhole/" target="_blank" rel="noreferrer">BlackHole 2ch</a>.</li>
               <li>Install BoysChanger from the latest release.</li>
@@ -118,20 +126,19 @@
       </section>
 
       <section class="downloads-panel">
-        <h2>Latest assets</h2>
+        <h2 data-i18n="assetsTitle">Latest assets</h2>
         <ul id="asset-list" class="asset-list">
-          <li>Fetching release files…</li>
+          <li>…</li>
         </ul>
-        <p class="note">
-          Every push to <code>main</code> builds Windows and macOS installers and publishes a new
-          GitHub Release automatically.
+        <p class="note" data-i18n="note">
+          Every push to main builds Windows and macOS installers and publishes a new GitHub Release automatically. The app checks Releases for updates.
         </p>
       </section>
     </main>
 
     <footer>
-      <span>BoysChanger · MIT</span>
-      <a href="https://github.com/HyperlinksSpace/BoysChanger" target="_blank" rel="noreferrer">Source on GitHub</a>
+      <span data-i18n="footerMit">BoysChanger · MIT</span>
+      <a href="https://github.com/HyperlinksSpace/BoysChanger" target="_blank" rel="noreferrer" data-i18n="footerSrc">Source on GitHub</a>
     </footer>
 
     <script src="./app.js"></script>

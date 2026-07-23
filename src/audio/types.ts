@@ -52,7 +52,8 @@ export const DEFAULT_SETTINGS: VoiceSettings = {
   effectMix: 55,
   inputDeviceId: 'default',
   outputDeviceId: '',
-  monitorLocally: true,
+  /** Off by default — monitoring speakers while the mic is open causes feedback loops. */
+  monitorLocally: false,
 };
 
 export const EFFECT_META: { id: EffectId; label: string; description: string }[] = [

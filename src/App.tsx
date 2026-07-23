@@ -2,14 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VoiceEngine } from './audio/VoiceEngine';
 import {
   DEFAULT_SETTINGS,
-  EFFECT_META,
   type AgePreset,
   type EffectId,
   type GenderPreset,
   type RacePreset,
   type VoiceSettings,
 } from './audio/types';
-import logoMark from './assets/logo-mark.svg';
+import { LOCALES, detectLocale, t, type Locale, type MessageKey } from './i18n';
 import './styles.css';
 
 interface DeviceOption {
@@ -18,28 +17,21 @@ interface DeviceOption {
   kind: MediaDeviceKind;
 }
 
-const RACES: { id: RacePreset; label: string }[] = [
-  { id: 'neutral', label: 'Neutral' },
-  { id: 'bright', label: 'Bright' },
-  { id: 'warm', label: 'Warm' },
-  { id: 'deep', label: 'Deep' },
-  { id: 'airy', label: 'Airy' },
+const RACES: RacePreset[] = ['neutral', 'bright', 'warm', 'deep', 'airy'];
+const GENDERS: GenderPreset[] = ['neutral', 'feminine', 'masculine', 'androgynous'];
+const AGES: AgePreset[] = ['child', 'teen', 'young', 'adult', 'elder'];
+const FX_IDS: EffectId[] = [
+  'echo',
+  'wahwah',
+  'distortion',
+  'reverb',
+  'chorus',
+  'robot',
+  'flanger',
+  'bitcrush',
 ];
 
-const GENDERS: { id: GenderPreset; label: string }[] = [
-  { id: 'neutral', label: 'Neutral' },
-  { id: 'feminine', label: 'Feminine' },
-  { id: 'masculine', label: 'Masculine' },
-  { id: 'androgynous', label: 'Androgynous' },
-];
-
-const AGES: { id: AgePreset; label: string }[] = [
-  { id: 'child', label: 'Child' },
-  { id: 'teen', label: 'Teen' },
-  { id: 'young', label: 'Young' },
-  { id: 'adult', label: 'Adult' },
-  { id: 'elder', label: 'Elder' },
-];
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string | undefined) || '1.0.0';
 
 function loadSettings(): VoiceSettings {
   try {
@@ -50,10 +42,18 @@ function loadSettings(): VoiceSettings {
       ...DEFAULT_SETTINGS,
       ...parsed,
       effects: { ...DEFAULT_SETTINGS.effects, ...(parsed.effects ?? {}) },
+      // Force-safe default if user had monitor on from older builds
+      monitorLocally: parsed.monitorLocally ?? false,
     };
   } catch {
     return { ...DEFAULT_SETTINGS, effects: { ...DEFAULT_SETTINGS.effects } };
   }
+}
+
+function loadLocale(systemLocale?: string | null): Locale {
+  const saved = localStorage.getItem('boyschanger-locale') as Locale | null;
+  if (saved && LOCALES.some((l) => l.id === saved)) return saved;
+  return detectLocale(systemLocale);
 }
 
 function looksLikeVirtualOutput(label: string): boolean {
@@ -69,20 +69,30 @@ export default function App() {
   const [settings, setSettings] = useState<VoiceSettings>(() => loadSettings());
   const [devices, setDevices] = useState<DeviceOption[]>([]);
   const [level, setLevel] = useState(0);
-  const [status, setStatus] = useState('Idle');
+  const [statusKey, setStatusKey] = useState<MessageKey>('statusIdle');
+  const [statusVars, setStatusVars] = useState<Record<string, string | number>>({});
   const [busy, setBusy] = useState(false);
   const [prehearInfo, setPrehearInfo] = useState('');
   const [platform, setPlatform] = useState<string>('win32');
   const [engineOn, setEngineOn] = useState(false);
+  const [locale, setLocale] = useState<Locale>(() => loadLocale());
+  const [version, setVersion] = useState(APP_VERSION);
+  const [updateNote, setUpdateNote] = useState('');
+
+  const tr = useCallback((key: MessageKey, vars?: Record<string, string | number>) => t(locale, key, vars), [locale]);
 
   const inputs = useMemo(() => devices.filter((d) => d.kind === 'audioinput'), [devices]);
   const outputs = useMemo(() => devices.filter((d) => d.kind === 'audiooutput'), [devices]);
 
+  const setStatus = (key: MessageKey, vars: Record<string, string | number> = {}) => {
+    setStatusKey(key);
+    setStatusVars(vars);
+  };
+
   const refreshDevices = useCallback(async () => {
     try {
-      // Permission prompt unlocks device labels
       const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
-      tmp.getTracks().forEach((t) => t.stop());
+      tmp.getTracks().forEach((track) => track.stop());
     } catch {
       /* */
     }
@@ -103,25 +113,49 @@ export default function App() {
   }, [settings]);
 
   useEffect(() => {
+    localStorage.setItem('boyschanger-locale', locale);
+  }, [locale]);
+
+  useEffect(() => {
+    let unsubUpdate: (() => void) | undefined;
+
     void (async () => {
       if (window.boysChanger) {
         const p = await window.boysChanger.platform();
         setPlatform(p);
+        const sys = await window.boysChanger.getLocale();
+        setLocale((prev) => {
+          const saved = localStorage.getItem('boyschanger-locale');
+          return saved ? prev : loadLocale(sys);
+        });
+        const ver = await window.boysChanger.getVersion();
+        setVersion(ver);
         await window.boysChanger.ensureMicPermission();
+
+        unsubUpdate = window.boysChanger.onUpdateStatus((payload) => {
+          const loc = (localStorage.getItem('boyschanger-locale') as Locale) || 'en';
+          if (payload.status === 'checking') setUpdateNote(t(loc, 'updateChecking'));
+          else if (payload.status === 'available')
+            setUpdateNote(t(loc, 'updateAvailable', { version: payload.version ?? '' }));
+          else if (payload.status === 'downloaded') setUpdateNote(t(loc, 'updateDownloaded'));
+          else if (payload.status === 'not-available') setUpdateNote(t(loc, 'updateLatest'));
+          else if (payload.status === 'error') setUpdateNote(t(loc, 'updateError'));
+        });
+        void window.boysChanger.checkForUpdates();
       }
-      await refreshDevices();
     })();
 
-    const unsub = engineRef.current.onLevel(setLevel);
+    const unsubLevel = engineRef.current.onLevel(setLevel);
     navigator.mediaDevices?.addEventListener?.('devicechange', refreshDevices);
+    void refreshDevices();
     return () => {
-      unsub();
+      unsubUpdate?.();
+      unsubLevel();
       navigator.mediaDevices?.removeEventListener?.('devicechange', refreshDevices);
       void engineRef.current.stop();
     };
   }, [refreshDevices]);
 
-  // Auto-pick virtual cable output when available and unset
   useEffect(() => {
     if (settings.outputDeviceId) return;
     const virtual = outputs.find((d) => looksLikeVirtualOutput(d.label));
@@ -149,15 +183,15 @@ export default function App() {
 
   const startEngine = async (enabled: boolean) => {
     setBusy(true);
-    setStatus('Starting audio…');
+    setStatus('statusStarting');
     try {
       const next = { ...settings, enabled };
       setSettings(next);
       await engineRef.current.start(next);
       setEngineOn(true);
-      setStatus(enabled ? 'Changer ON — routing to virtual cable' : 'Passthrough (changer off)');
+      setStatus(enabled ? 'statusOn' : 'statusPassthrough');
     } catch (e) {
-      setStatus(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+      setStatus('statusFailed', { error: e instanceof Error ? e.message : String(e) });
       setEngineOn(false);
     } finally {
       setBusy(false);
@@ -168,7 +202,7 @@ export default function App() {
     setBusy(true);
     await engineRef.current.stop();
     setEngineOn(false);
-    setStatus('Stopped');
+    setStatus('statusStopped');
     setBusy(false);
   };
 
@@ -180,54 +214,71 @@ export default function App() {
     const nextEnabled = !settings.enabled;
     update('enabled', nextEnabled);
     engineRef.current.applySettings({ ...settings, enabled: nextEnabled });
-    setStatus(nextEnabled ? 'Changer ON' : 'Changer OFF (mic passthrough)');
+    setStatus(nextEnabled ? 'statusOn' : 'statusOff');
   };
 
   const onPrehear = async () => {
     if (!engineOn) {
-      setPrehearInfo('Start the engine first so audio can be captured.');
+      setPrehearInfo(tr('prehearNeedEngine'));
       return;
     }
     const { seconds } = await engineRef.current.prehear();
     setPrehearInfo(
-      seconds > 0
-        ? `Replaying last ${seconds.toFixed(1)}s`
-        : 'Not enough audio yet — speak for a moment, then try again.',
+      seconds > 0 ? tr('prehearPlaying', { seconds: seconds.toFixed(1) }) : tr('prehearEmpty'),
     );
   };
 
   const applySystemWide = async () => {
     if (!window.boysChanger) {
-      setStatus('System input switching requires the desktop app.');
+      setStatus('statusNeedDesktop');
       return;
     }
-    // System mic uses the recording side of the virtual cable.
     const systemHint = platform === 'darwin' ? 'BlackHole' : 'CABLE Output';
-    setStatus('Applying system input…');
+    setStatus('statusApplying');
     const res = await window.boysChanger.setSystemInput(systemHint);
-    setStatus(res.message);
+    setStatusKey('statusIdle');
+    setStatusVars({});
+    // Show server message in status line as raw via failed key substitution fallback
+    setPrehearInfo(res.message);
     if (res.ok && !engineOn) {
       await startEngine(true);
     }
   };
 
   const meterWidth = Math.min(100, Math.round(level * 280));
+  const logoSrc = './logo.png';
 
   return (
     <div className="app">
       <header className="hero">
         <div className="brand-block">
           <div className="brand-row">
-            <img className="brand-logo" src={logoMark} width={72} height={72} alt="BoysChanger" />
+            <img className="brand-logo" src={logoSrc} width={72} height={72} alt="BoysChanger" />
             <div>
-              <p className="eyebrow">System-wide voice studio</p>
-              <h1 className="brand">BoysChanger</h1>
+              <p className="eyebrow">{tr('eyebrow')}</p>
+              <h1 className="brand">
+                BoysChanger
+                <span className="version">v{version}</span>
+              </h1>
             </div>
           </div>
-          <p className="tagline">
-            Shape race, gender, age, timbre, and stacked effects — then route the result as your
-            system microphone.
-          </p>
+          <p className="tagline">{tr('tagline')}</p>
+          <div className="lang-row">
+            <label>
+              {tr('language')}
+              <select
+                value={locale}
+                onChange={(e) => setLocale(e.target.value as Locale)}
+              >
+                {LOCALES.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {updateNote ? <span className="update-note">{updateNote}</span> : null}
+          </div>
         </div>
         <div className="power-block">
           <button
@@ -238,44 +289,40 @@ export default function App() {
           >
             {settings.enabled && engineOn ? 'ON' : 'OFF'}
           </button>
-          <p className="power-hint">Voice changer</p>
+          <p className="power-hint">{tr('powerHint')}</p>
           <div className="meter" aria-hidden>
             <div className="meter-fill" style={{ width: `${meterWidth}%` }} />
           </div>
-          <p className="status">{status}</p>
+          <p className="status">{tr(statusKey, statusVars)}</p>
         </div>
       </header>
 
       <section className="panel devices">
-        <h2>Audio routing</h2>
-        <p className="hint">
-          {platform === 'darwin'
-            ? 'Install BlackHole 2ch. Set Output to BlackHole, then apply system input.'
-            : 'Install VB-Cable. Set Output to CABLE Input, then apply system input (CABLE Output).'}
-        </p>
+        <h2>{tr('audioRouting')}</h2>
+        <p className="hint">{platform === 'darwin' ? tr('hintMac') : tr('hintWin')}</p>
         <div className="grid-2">
           <label>
-            Input (your mic)
+            {tr('inputMic')}
             <select
               value={settings.inputDeviceId}
               onChange={(e) => update('inputDeviceId', e.target.value)}
             >
-              <option value="default">System default</option>
+              <option value="default">{tr('systemDefault')}</option>
               {inputs.map((d) => (
                 <option key={d.deviceId} value={d.deviceId}>
                   {d.label}
-                  {looksLikeVirtualInput(d.label) ? ' (virtual — usually avoid)' : ''}
+                  {looksLikeVirtualInput(d.label) ? tr('virtualAvoid') : ''}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Output (virtual cable)
+            {tr('outputCable')}
             <select
               value={settings.outputDeviceId}
               onChange={(e) => update('outputDeviceId', e.target.value)}
             >
-              <option value="">Default speakers</option>
+              <option value="">{tr('defaultSpeakers')}</option>
               {outputs.map((d) => (
                 <option key={d.deviceId} value={d.deviceId}>
                   {d.label}
@@ -287,75 +334,80 @@ export default function App() {
         </div>
         <div className="row actions">
           <button type="button" className="secondary" onClick={() => void refreshDevices()}>
-            Refresh devices
+            {tr('refreshDevices')}
           </button>
           <button type="button" className="secondary" onClick={() => void applySystemWide()}>
-            Apply as system input
+            {tr('applySystem')}
           </button>
           {!engineOn ? (
-            <button type="button" className="secondary" disabled={busy} onClick={() => void startEngine(settings.enabled)}>
-              Start engine
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => void startEngine(settings.enabled)}
+            >
+              {tr('startEngine')}
             </button>
           ) : (
             <button type="button" className="secondary" disabled={busy} onClick={() => void stopEngine()}>
-              Stop engine
+              {tr('stopEngine')}
             </button>
           )}
-          <label className="check">
+          <label className="check" title={tr('monitorHint')}>
             <input
               type="checkbox"
               checked={settings.monitorLocally}
               onChange={(e) => update('monitorLocally', e.target.checked)}
             />
-            Monitor locally
+            {tr('monitorLocally')}
           </label>
         </div>
       </section>
 
       <section className="panel character">
-        <h2>Voice character</h2>
+        <h2>{tr('voiceCharacter')}</h2>
         <div className="grid-3">
           <fieldset>
-            <legend>Race</legend>
+            <legend>{tr('race')}</legend>
             <div className="chips">
               {RACES.map((r) => (
                 <button
-                  key={r.id}
+                  key={r}
                   type="button"
-                  className={settings.race === r.id ? 'chip active' : 'chip'}
-                  onClick={() => update('race', r.id)}
+                  className={settings.race === r ? 'chip active' : 'chip'}
+                  onClick={() => update('race', r)}
                 >
-                  {r.label}
+                  {tr(`race_${r}` as MessageKey)}
                 </button>
               ))}
             </div>
           </fieldset>
           <fieldset>
-            <legend>Gender</legend>
+            <legend>{tr('gender')}</legend>
             <div className="chips">
               {GENDERS.map((g) => (
                 <button
-                  key={g.id}
+                  key={g}
                   type="button"
-                  className={settings.gender === g.id ? 'chip active' : 'chip'}
-                  onClick={() => update('gender', g.id)}
+                  className={settings.gender === g ? 'chip active' : 'chip'}
+                  onClick={() => update('gender', g)}
                 >
-                  {g.label}
+                  {tr(`gender_${g}` as MessageKey)}
                 </button>
               ))}
             </div>
           </fieldset>
           <fieldset>
-            <legend>Age</legend>
+            <legend>{tr('age')}</legend>
             <div className="chips">
               {AGES.map((a) => (
                 <button
-                  key={a.id}
+                  key={a}
                   type="button"
-                  className={settings.age === a.id ? 'chip active' : 'chip'}
-                  onClick={() => update('age', a.id)}
+                  className={settings.age === a ? 'chip active' : 'chip'}
+                  onClick={() => update('age', a)}
                 >
-                  {a.label}
+                  {tr(`age_${a}` as MessageKey)}
                 </button>
               ))}
             </div>
@@ -364,7 +416,9 @@ export default function App() {
 
         <div className="sliders">
           <label>
-            <span>Timbre <em>{settings.timbre}</em></span>
+            <span>
+              {tr('timbre')} <em>{settings.timbre}</em>
+            </span>
             <input
               type="range"
               min={0}
@@ -374,7 +428,9 @@ export default function App() {
             />
           </label>
           <label>
-            <span>Amplifier <em>{settings.amplifier}</em></span>
+            <span>
+              {tr('amplifier')} <em>{settings.amplifier}</em>
+            </span>
             <input
               type="range"
               min={0}
@@ -384,7 +440,9 @@ export default function App() {
             />
           </label>
           <label>
-            <span>Volume <em>{settings.volume}</em></span>
+            <span>
+              {tr('volume')} <em>{settings.volume}</em>
+            </span>
             <input
               type="range"
               min={0}
@@ -394,7 +452,9 @@ export default function App() {
             />
           </label>
           <label>
-            <span>Effects mix <em>{settings.effectMix}</em></span>
+            <span>
+              {tr('effectsMix')} <em>{settings.effectMix}</em>
+            </span>
             <input
               type="range"
               min={0}
@@ -407,37 +467,38 @@ export default function App() {
       </section>
 
       <section className="panel effects">
-        <h2>Effects</h2>
-        <p className="hint">Enable any combination — all selected effects run together.</p>
+        <h2>{tr('effects')}</h2>
+        <p className="hint">{tr('effectsHint')}</p>
         <div className="effects-grid">
-          {EFFECT_META.map((fx) => (
+          {FX_IDS.map((id) => (
             <button
-              key={fx.id}
+              key={id}
               type="button"
-              className={settings.effects[fx.id] ? 'fx on' : 'fx'}
-              onClick={() => toggleEffect(fx.id)}
+              className={settings.effects[id] ? 'fx on' : 'fx'}
+              onClick={() => toggleEffect(id)}
             >
-              <strong>{fx.label}</strong>
-              <span>{fx.description}</span>
+              <strong>{tr(`fx_${id}` as MessageKey)}</strong>
+              <span>{tr(`fx_${id}_desc` as MessageKey)}</span>
             </button>
           ))}
         </div>
       </section>
 
       <section className="panel prehear">
-        <h2>Prehear</h2>
-        <p className="hint">Replay the last 11 seconds of processed voice through your speakers.</p>
+        <h2>{tr('prehear')}</h2>
+        <p className="hint">{tr('prehearHint')}</p>
         <div className="row actions">
           <button type="button" className="primary" onClick={() => void onPrehear()}>
-            Prehear last 11s
+            {tr('prehearBtn')}
           </button>
           <span className="prehear-info">{prehearInfo}</span>
         </div>
       </section>
 
       <footer className="footer">
-        <span>BoysChanger · Windows & macOS</span>
-        <span className="footer-note">Releases publish automatically on each main commit</span>
+        <span>
+          {tr('footer')} · v{version}
+        </span>
       </footer>
     </div>
   );

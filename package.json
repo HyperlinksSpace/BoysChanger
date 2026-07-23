@@ -12,16 +12,18 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
+    "icons": "node scripts/build-icons.js",
+    "prebuild": "node scripts/build-icons.js",
     "build": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json --noEmit && vite build && electron-builder --publish never",
     "build:dir": "vite build && electron-builder --dir --publish never",
     "preview": "vite preview",
     "electron:dev": "vite",
-    "pack:win": "vite build && electron-builder --win --publish never",
-    "pack:mac": "vite build && electron-builder --mac --publish never",
-    "pack:all": "vite build && electron-builder --win --mac --publish never"
+    "pack:win": "npm run icons && vite build && electron-builder --win --publish never",
+    "pack:mac": "npm run icons && vite build && electron-builder --mac --publish never",
+    "pack:all": "npm run icons && vite build && electron-builder --win --mac --publish never"
   },
   "build": {
-    "appId": "com.boyschanger.app",
+    "appId": "com.hyperlinksspace.boyschanger",
     "productName": "BoysChanger",
     "directories": {
       "output": "release",
@@ -39,20 +41,25 @@
         "to": "icon.png"
       }
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "HyperlinksSpace",
+        "repo": "BoysChanger"
+      }
+    ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
-        },
-        {
-          "target": "portable",
           "arch": ["x64"]
         }
       ],
       "artifactName": "BoysChanger-${version}-Windows-${arch}.${ext}"
     },
     "mac": {
+      "icon": "build/icon.png",
       "target": [
         {
           "target": "dmg",
@@ -73,10 +80,15 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
     }
   },
-  "dependencies": {},
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
@@ -84,8 +96,10 @@
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
+    "png-to-ico": "^2.1.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sharp": "^0.33.5",
     "typescript": "^5.7.2",
     "vite": "^5.4.11",
     "vite-plugin-electron": "^0.28.8",
