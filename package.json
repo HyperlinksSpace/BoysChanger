@@ -39,6 +39,26 @@
       {
         "from": "build/icon.png",
         "to": "icon.png"
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "build/overlay-on.png",
+        "to": "overlay-on.png"
+      },
+      {
+        "from": "build/overlay-off.png",
+        "to": "overlay-off.png"
+      },
+      {
+        "from": "build/icon-status-on.png",
+        "to": "icon-status-on.png"
+      },
+      {
+        "from": "build/icon-status-off.png",
+        "to": "icon-status-off.png"
       }
     ],
     "publish": [
@@ -81,6 +101,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BoysChanger",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico"

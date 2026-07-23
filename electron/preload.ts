@@ -18,6 +18,8 @@ const api = {
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('open-external', url),
   checkForUpdates: (): Promise<{ ok: boolean; version?: string; message?: string }> =>
     ipcRenderer.invoke('check-for-updates'),
+  setChangerStatus: (on: boolean): Promise<{ ok: boolean; on: boolean }> =>
+    ipcRenderer.invoke('set-changer-status', on),
   onUpdateStatus: (cb: (payload: UpdateStatusPayload) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: UpdateStatusPayload) => cb(payload);
     ipcRenderer.on('update-status', listener);

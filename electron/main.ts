@@ -3,6 +3,7 @@ import {
   app,
   BrowserWindow,
   ipcMain,
+  nativeImage,
   shell,
   systemPreferences,
 } from 'electron';
@@ -13,25 +14,95 @@ import { autoUpdater } from 'electron-updater';
 
 const execFileAsync = promisify(execFile);
 
+/** Must match package.json build.appId — required for Windows taskbar pin identity. */
+const APP_USER_MODEL_ID = 'com.hyperlinksspace.boyschanger';
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId(APP_USER_MODEL_ID);
+}
+
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged
   ? process.env.DIST
   : path.join(process.env.DIST, '../public');
 
 let mainWindow: BrowserWindow | null = null;
+let changerActive = false;
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
-function resolveIconPath() {
-  const candidates = [
-    path.join(__dirname, '../build/icon.ico'),
-    path.join(__dirname, '../build/icon.png'),
-    path.join(process.resourcesPath || '', 'icon.png'),
-    path.join(process.env.VITE_PUBLIC ?? '', 'icon.png'),
-    path.join(process.env.VITE_PUBLIC ?? '', 'logo.png'),
-    path.join(__dirname, '../public/logo.png'),
+function assetCandidates(...names: string[]): string[] {
+  const roots = [
+    path.join(__dirname, '../build'),
+    path.join(__dirname, '../public'),
+    process.resourcesPath || '',
+    process.env.VITE_PUBLIC || '',
+    path.join(__dirname, '../dist'),
   ];
-  return candidates.find((p) => p && fs.existsSync(p));
+  const out: string[] = [];
+  for (const root of roots) {
+    if (!root) continue;
+    for (const name of names) {
+      out.push(path.join(root, name));
+    }
+  }
+  return out;
+}
+
+function firstExisting(paths: string[]): string | undefined {
+  return paths.find((p) => p && fs.existsSync(p));
+}
+
+function resolveIconPath() {
+  return firstExisting(
+    assetCandidates('icon.ico', 'icon.png', 'logo.png'),
+  );
+}
+
+function resolveOverlayPath(on: boolean) {
+  return firstExisting(
+    assetCandidates(on ? 'overlay-on.png' : 'overlay-off.png'),
+  );
+}
+
+function resolveStatusIconPath(on: boolean) {
+  return firstExisting(
+    assetCandidates(on ? 'icon-status-on.png' : 'icon-status-off.png', 'icon.png'),
+  );
+}
+
+function applyChangerStatus(on: boolean) {
+  changerActive = on;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  if (process.platform === 'win32') {
+    const overlayPath = resolveOverlayPath(on);
+    if (overlayPath) {
+      const overlay = nativeImage.createFromPath(overlayPath);
+      if (!overlay.isEmpty()) {
+        mainWindow.setOverlayIcon(overlay, on ? 'BoysChanger ON' : 'BoysChanger OFF');
+      }
+    } else {
+      mainWindow.setOverlayIcon(null, '');
+    }
+    // Keep the base window icon pinned to the .ico so taskbar shortcuts stay valid
+    const base = resolveIconPath();
+    if (base) {
+      try {
+        mainWindow.setIcon(base);
+      } catch {
+        /* */
+      }
+    }
+  } else if (process.platform === 'darwin') {
+    const statusPath = resolveStatusIconPath(on);
+    if (statusPath && app.dock) {
+      const img = nativeImage.createFromPath(statusPath);
+      if (!img.isEmpty()) {
+        app.dock.setIcon(img);
+      }
+    }
+  }
 }
 
 function createWindow() {
@@ -54,7 +125,21 @@ function createWindow() {
     show: false,
   });
 
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  if (process.platform === 'win32') {
+    // Helps Windows keep the same identity when pinning from the running window
+    mainWindow.setAppDetails({
+      appId: APP_USER_MODEL_ID,
+      appIconPath: icon && icon.endsWith('.ico') ? icon : undefined,
+      appIconIndex: 0,
+      relaunchDisplayName: 'BoysChanger',
+      relaunchCommand: app.isPackaged ? process.execPath : undefined,
+    });
+  }
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+    applyChangerStatus(false);
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -224,4 +309,8 @@ ipcMain.handle('check-for-updates', async () => {
   } catch (e) {
     return { ok: false, message: String(e) };
   }
+});
+ipcMain.handle('set-changer-status', (_evt, on: boolean) => {
+  applyChangerStatus(Boolean(on));
+  return { ok: true, on: changerActive };
 });

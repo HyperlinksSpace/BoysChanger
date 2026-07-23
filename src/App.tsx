@@ -176,6 +176,11 @@ export default function App() {
   }, [outputs, settings.outputDeviceId]);
 
   useEffect(() => {
+    const active = Boolean(settings.enabled && engineOn);
+    void window.boysChanger?.setChangerStatus(active);
+  }, [settings.enabled, engineOn]);
+
+  useEffect(() => {
     if (!engineOn) return;
     engineRef.current.applySettings(settings);
     void engineRef.current.applyOutputDevice(settings.outputDeviceId);
