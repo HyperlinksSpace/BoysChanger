@@ -144,11 +144,15 @@ export default function App() {
         unsubUpdate = window.boysChanger.onUpdateStatus((payload) => {
           const loc = (localStorage.getItem('boyschanger-locale') as Locale) || 'en';
           if (payload.status === 'checking') setUpdateNote(t(loc, 'updateChecking'));
-          else if (payload.status === 'available')
-            setUpdateNote(t(loc, 'updateAvailable', { version: payload.version ?? '' }));
-          else if (payload.status === 'downloaded') setUpdateNote(t(loc, 'updateDownloaded'));
+          else if (payload.status === 'available') {
+            const pct = payload.message ? ` ${payload.message}` : '';
+            setUpdateNote(t(loc, 'updateAvailable', { version: payload.version ?? '' }) + pct);
+          } else if (payload.status === 'downloaded') setUpdateNote(t(loc, 'updateDownloaded'));
           else if (payload.status === 'not-available') setUpdateNote(t(loc, 'updateLatest'));
-          else if (payload.status === 'error') setUpdateNote(t(loc, 'updateError'));
+          else if (payload.status === 'error')
+            setUpdateNote(
+              `${t(loc, 'updateError')}${payload.message ? `: ${payload.message}` : ''}`,
+            );
         });
         void window.boysChanger.checkForUpdates();
       }
@@ -276,6 +280,16 @@ export default function App() {
               ))}
             </select>
           </label>
+          <button
+            type="button"
+            className="secondary update-btn"
+            onClick={() => {
+              setUpdateNote(tr('updateChecking'));
+              void window.boysChanger?.checkForUpdates();
+            }}
+          >
+            {tr('updateCheck')}
+          </button>
           {updateNote ? <span className="update-note">{updateNote}</span> : null}
         </div>
       </header>

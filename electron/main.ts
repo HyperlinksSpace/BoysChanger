@@ -158,7 +158,10 @@ function setupAutoUpdater() {
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.allowPrerelease = false;
+  // Older releases used tags like v1.0.5-abc1234 (semver prerelease). Keep true
+  // so those builds can still be discovered; new tags are clean v1.0.N.
+  autoUpdater.allowPrerelease = true;
+  autoUpdater.allowDowngrade = false;
 
   const send = (status: string, version?: string, message?: string) => {
     mainWindow?.webContents.send('update-status', { status, version, message });
@@ -166,27 +169,34 @@ function setupAutoUpdater() {
 
   autoUpdater.on('checking-for-update', () => send('checking'));
   autoUpdater.on('update-available', (info) => send('available', info.version));
-  autoUpdater.on('update-not-available', () => send('not-available'));
-  autoUpdater.on('error', (err) => send('error', undefined, String(err)));
-  autoUpdater.on('download-progress', () => send('available'));
+  autoUpdater.on('update-not-available', (info) =>
+    send('not-available', info?.version ?? app.getVersion()),
+  );
+  autoUpdater.on('error', (err) => {
+    console.error('[autoUpdater]', err);
+    send('error', undefined, err?.message ? String(err.message) : String(err));
+  });
+  autoUpdater.on('download-progress', (p) => {
+    send('available', undefined, `${Math.round(p.percent)}%`);
+  });
   autoUpdater.on('update-downloaded', (info) => {
     send('downloaded', info.version);
     setTimeout(() => {
       autoUpdater.quitAndInstall(false, true);
-    }, 1500);
+    }, 1800);
   });
 
-  setTimeout(() => {
-    void autoUpdater.checkForUpdates().catch(() => {
-      /* ignore offline */
+  const check = () => {
+    void autoUpdater.checkForUpdates().catch((err) => {
+      console.error('[autoUpdater] check failed', err);
+      send('error', undefined, err instanceof Error ? err.message : String(err));
     });
-  }, 4000);
+  };
 
-  setInterval(() => {
-    void autoUpdater.checkForUpdates().catch(() => {
-      /* ignore */
-    });
-  }, 1000 * 60 * 60 * 4);
+  // First check after UI is up; retry once shortly after in case of race with network
+  setTimeout(check, 5000);
+  setTimeout(check, 45000);
+  setInterval(check, 1000 * 60 * 60 * 4);
 }
 
 async function ensureMicPermission(): Promise<boolean> {

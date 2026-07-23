@@ -21,6 +21,8 @@
 
 Shape race, gender, age, timbre, amplifier, and volume; stack echo, wah-wah, distortion, reverb, chorus, robot, flanger, and bitcrush; prehear the last **11 seconds**; route the result through a virtual cable as your OS microphone.
 
+> **Auto-update note:** Install from the [latest Release](https://github.com/HyperlinksSpace/BoysChanger/releases/latest) once if you are on 1.0.5 or earlier — those builds used prerelease-style Git tags and skipped updates. From **v1.0.6+** updates apply automatically.
+
 ## Features
 
 - **ON/OFF** master toggle for the voice changer
