@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import https from 'node:https';
 import {
   app,
   BrowserWindow,
@@ -23,6 +24,9 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+const GH_OWNER = 'HyperlinksSpace';
+const GH_REPO = 'BoysChanger';
+
 /** Must match package.json build.appId — required for Windows taskbar pin identity. */
 const APP_USER_MODEL_ID = 'com.hyperlinksspace.boyschanger';
 
@@ -38,6 +42,8 @@ process.env.VITE_PUBLIC = app.isPackaged
 let mainWindow: BrowserWindow | null = null;
 let changerActive = false;
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
+let updateCheckInFlight = false;
+let lastUpdateCheckAt = 0;
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
@@ -163,17 +169,217 @@ function createWindow() {
   }
 }
 
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientNetworkError(err: unknown): boolean {
+  const msg = String(err instanceof Error ? err.message : err);
+  return /ERR_CONNECTION_CLOSED|ERR_CONNECTION_RESET|ERR_CONNECTION_REFUSED|ERR_NETWORK_CHANGED|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|ERR_TIMED_OUT|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|socket hang up|network|TLS|SSL/i.test(
+    msg,
+  );
+}
+
+function httpsJson<T>(url: string, headers: Record<string, string> = {}): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      url,
+      {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': `BoysChanger/${app.getVersion()}`,
+          'X-GitHub-Api-Version': '2022-11-28',
+          ...headers,
+        },
+        timeout: 20000,
+      },
+      (res) => {
+        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          httpsJson<T>(res.headers.location, headers).then(resolve, reject);
+          res.resume();
+          return;
+        }
+        const chunks: Buffer[] = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const body = Buffer.concat(chunks).toString('utf8');
+          if (!res.statusCode || res.statusCode >= 400) {
+            reject(new Error(`GitHub API HTTP ${res.statusCode}: ${body.slice(0, 180)}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(body) as T);
+          } catch (e) {
+            reject(e);
+          }
+        });
+      },
+    );
+    req.on('timeout', () => {
+      req.destroy(new Error('GitHub API timeout'));
+    });
+    req.on('error', reject);
+  });
+}
+
+function parseSemver(v: string): number[] | null {
+  const m = String(v)
+    .replace(/^v/i, '')
+    .split(/[+-]/)[0]
+    .split('.')
+    .map((p) => Number(p));
+  if (m.length < 1 || m.some((n) => Number.isNaN(n))) return null;
+  while (m.length < 3) m.push(0);
+  return m.slice(0, 3);
+}
+
+function isNewerVersion(remote: string, local: string): boolean {
+  const a = parseSemver(remote);
+  const b = parseSemver(local);
+  if (!a || !b) return remote.replace(/^v/i, '') !== local.replace(/^v/i, '');
+  for (let i = 0; i < 3; i++) {
+    if (a[i] > b[i]) return true;
+    if (a[i] < b[i]) return false;
+  }
+  return false;
+}
+
+type GhRelease = { tag_name?: string; html_url?: string; prerelease?: boolean; draft?: boolean };
+
+async function fetchLatestReleaseViaApi(): Promise<{ tag: string; url: string }> {
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '';
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const data = await httpsJson<GhRelease>(
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/releases/latest`,
+    headers,
+  );
+  const tag = data.tag_name || '';
+  if (!tag) throw new Error('GitHub latest release has no tag');
+  return {
+    tag,
+    url: data.html_url || `https://github.com/${GH_OWNER}/${GH_REPO}/releases/tag/${tag}`,
+  };
+}
+
+function configureGithubFeed() {
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '';
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: GH_OWNER,
+    repo: GH_REPO,
+    private: Boolean(token),
+    token: token || undefined,
+  });
+  autoUpdater.requestHeaders = {
+    'User-Agent': `BoysChanger/${app.getVersion()} (${process.platform})`,
+  };
+}
+
+function configureGenericReleaseFeed(tag: string) {
+  // Direct asset folder for that tag — often more reliable than the GitHub provider path.
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: `https://github.com/${GH_OWNER}/${GH_REPO}/releases/download/${tag}/`,
+  });
+  autoUpdater.requestHeaders = {
+    'User-Agent': `BoysChanger/${app.getVersion()} (${process.platform})`,
+  };
+}
+
+async function checkForUpdatesResilient(reason: string, manual = false) {
+  if (!app.isPackaged) return { ok: false as const, message: 'dev' };
+  if (updateCheckInFlight) return { ok: false as const, message: 'busy' };
+  updateCheckInFlight = true;
+  lastUpdateCheckAt = Date.now();
+
+  const send = (status: string, version?: string, message?: string) => {
+    logInfo('updater', status, { version, message, reason, manual });
+    mainWindow?.webContents.send('update-status', { status, version, message });
+  };
+
+  const attempts = manual ? 4 : 3;
+  let lastErr: unknown;
+
+  try {
+    configureGithubFeed();
+    for (let i = 0; i < attempts; i++) {
+      try {
+        logInfo('updater', 'check attempt', { reason, attempt: i + 1, attempts });
+        if (i === 0 || manual) send('checking');
+        const result = await autoUpdater.checkForUpdates();
+        return { ok: true as const, version: result?.updateInfo?.version };
+      } catch (err) {
+        lastErr = err;
+        logWarn('updater', 'check attempt failed', {
+          attempt: i + 1,
+          err: String(err),
+          transient: isTransientNetworkError(err),
+        });
+        if (!isTransientNetworkError(err) || i === attempts - 1) break;
+        await sleep(1200 * Math.pow(2, i));
+      }
+    }
+
+    // Fallback: GitHub REST API + generic feed for that release tag
+    logInfo('updater', 'trying GitHub API fallback');
+    const latest = await fetchLatestReleaseViaApi();
+    const local = app.getVersion();
+    const remote = latest.tag.replace(/^v/i, '');
+    if (!isNewerVersion(remote, local)) {
+      send('not-available', local);
+      return { ok: true as const, version: local };
+    }
+
+    configureGenericReleaseFeed(latest.tag);
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      return { ok: true as const, version: result?.updateInfo?.version || remote };
+    } catch (err) {
+      logWarn('updater', 'generic feed failed after API found newer version', {
+        remote,
+        err: String(err),
+      });
+      // Soft success: tell UI an update exists and open releases if manual
+      send('available', remote, 'open');
+      if (manual) {
+        void shell.openExternal(latest.url);
+      }
+      return {
+        ok: true as const,
+        version: remote,
+        message: `Update ${remote} available — download page opened`,
+      };
+    }
+  } catch (err) {
+    lastErr = err;
+    const msg = err instanceof Error ? err.message : String(err);
+    const soft = isTransientNetworkError(lastErr) || isTransientNetworkError(err);
+    logError('updater', 'check failed', { err: msg, soft, reason, manual });
+    // Background polls: don't scare the UI with raw Chromium net errors
+    if (manual || !soft) {
+      send('error', undefined, soft ? 'network' : msg);
+    } else {
+      send('error', undefined, 'network-soft');
+    }
+    return { ok: false as const, message: msg };
+  } finally {
+    updateCheckInFlight = false;
+  }
+}
+
 function setupAutoUpdater() {
   if (!app.isPackaged) {
     logInfo('updater', 'skipped in dev (not packaged)');
     return;
   }
 
-  // Public GitHub Releases need no token. For private repos set GH_TOKEN / GITHUB_TOKEN.
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.allowPrerelease = true;
   autoUpdater.allowDowngrade = false;
+  configureGithubFeed();
 
   const send = (status: string, version?: string, message?: string) => {
     logInfo('updater', status, { version, message });
@@ -186,38 +392,37 @@ function setupAutoUpdater() {
     send('not-available', info?.version ?? app.getVersion()),
   );
   autoUpdater.on('error', (err) => {
-    logError('updater', err?.message ? String(err.message) : String(err));
-    send('error', undefined, err?.message ? String(err.message) : String(err));
+    const msg = err?.message ? String(err.message) : String(err);
+    logError('updater', msg);
+    // Avoid duplicate noisy UI if resilient check already reported it
+    if (isTransientNetworkError(err)) {
+      send('error', undefined, 'network-soft');
+    } else {
+      send('error', undefined, msg);
+    }
   });
   autoUpdater.on('download-progress', (p) => {
     send('available', undefined, `${Math.round(p.percent)}%`);
   });
   autoUpdater.on('update-downloaded', (info) => {
     send('downloaded', info.version);
-    // Seamless install: relaunch into the new version (Electron requires a restart).
     setTimeout(() => {
       logInfo('updater', 'quitAndInstall', { version: info.version });
       autoUpdater.quitAndInstall(false, true);
     }, 800);
   });
 
-  const check = (reason: string) => {
-    logInfo('updater', 'checkForUpdates', { reason });
-    void autoUpdater.checkForUpdates().catch((err) => {
-      logError('updater', 'check failed', { err: String(err) });
-      send('error', undefined, err instanceof Error ? err.message : String(err));
-    });
+  const check = (reason: string, manual = false) => {
+    void checkForUpdatesResilient(reason, manual);
   };
 
-  // Poll GitHub Releases API periodically (no webhook needed for public repos).
-  setTimeout(() => check('startup'), 5000);
-  setTimeout(() => check('startup-retry'), 30000);
+  setTimeout(() => check('startup'), 8000);
+  setTimeout(() => check('startup-retry'), 45000);
   if (updateCheckTimer) clearInterval(updateCheckTimer);
-  updateCheckTimer = setInterval(() => check('interval'), 1000 * 60 * 30);
-
-  app.on('browser-window-focus', () => {
-    // Light debounce via last-check would be nicer; interval + focus is enough.
-  });
+  updateCheckTimer = setInterval(() => {
+    if (Date.now() - lastUpdateCheckAt < 1000 * 60 * 10) return;
+    check('interval');
+  }, 1000 * 60 * 30);
 }
 
 async function ensureMicPermission(): Promise<boolean> {
@@ -335,13 +540,7 @@ ipcMain.handle('open-external', async (_evt, url: string) => {
 });
 ipcMain.handle('check-for-updates', async () => {
   if (!app.isPackaged) return { ok: false, message: 'dev' };
-  try {
-    const result = await autoUpdater.checkForUpdates();
-    return { ok: true, version: result?.updateInfo?.version };
-  } catch (e) {
-    logError('updater', 'manual check failed', { err: String(e) });
-    return { ok: false, message: String(e) };
-  }
+  return checkForUpdatesResilient('manual', true);
 });
 ipcMain.handle('set-changer-status', (_evt, on: boolean) => {
   applyChangerStatus(Boolean(on));

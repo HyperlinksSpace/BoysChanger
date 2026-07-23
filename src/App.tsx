@@ -167,10 +167,24 @@ export default function App() {
             setUpdateNote(t(loc, 'updateAvailable', { version: payload.version ?? '' }) + pct);
           } else if (payload.status === 'downloaded') setUpdateNote(t(loc, 'updateDownloaded'));
           else if (payload.status === 'not-available') setUpdateNote(t(loc, 'updateLatest'));
-          else if (payload.status === 'error')
-            setUpdateNote(
-              `${t(loc, 'updateError')}${payload.message ? `: ${payload.message}` : ''}`,
-            );
+          else if (payload.status === 'error') {
+            const net =
+              payload.message === 'network' ||
+              payload.message === 'network-soft' ||
+              /ERR_CONNECTION|ECONNRESET|ETIMEDOUT|network/i.test(payload.message || '');
+            if (payload.message === 'network-soft') {
+              // Background flaky GitHub — keep quiet unless already showing an error
+              setUpdateNote((prev) =>
+                prev && /fail|ошиб|失败|ERR_/i.test(prev) ? t(loc, 'updateErrorNetwork') : prev,
+              );
+            } else {
+              setUpdateNote(
+                net
+                  ? t(loc, 'updateErrorNetwork')
+                  : `${t(loc, 'updateError')}${payload.message ? `: ${payload.message}` : ''}`,
+              );
+            }
+          }
         });
         void window.boysChanger.checkForUpdates();
       }

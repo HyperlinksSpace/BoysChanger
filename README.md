@@ -77,7 +77,7 @@ Use the **Logs** button in the app to open the folder. Share that file when repo
 
 ### Auto-update
 
-Packaged builds poll GitHub Releases about every **30 minutes**, download updates automatically, and relaunch into the new version. Public repos need no token. For a private repo, set a `GH_TOKEN` (or `GITHUB_TOKEN`) with `repo` scope in the environment for the installed app / CI.
+Packaged builds poll GitHub Releases about every **30 minutes**, retry on flaky network errors (`ERR_CONNECTION_CLOSED`, etc.), fall back to the GitHub API, download updates automatically, and relaunch into the new version. Public repos need no token. Optional: set `GH_TOKEN` / `GITHUB_TOKEN` (repo scope) if GitHub rate-limits or blocks anonymous requests on your network.
 
 ## Develop
 
