@@ -228,7 +228,7 @@ export class VoiceEngine {
     this.noiseGate = this.ctx.createGain();
     this.noiseGate.gain.value = 0;
     this.inputTrim = this.ctx.createGain();
-    this.inputTrim.gain.value = 0.85; // headroom vs hot USB mics
+    this.inputTrim.gain.value = 1;
 
     this.ampGain = this.ctx.createGain();
     this.pitchBypass = this.ctx.createGain();
@@ -244,19 +244,19 @@ export class VoiceEngine {
     this.monitorGain.gain.value = 0;
 
     this.compressor = this.ctx.createDynamicsCompressor();
-    this.compressor.threshold.value = -22;
-    this.compressor.knee.value = 20;
-    this.compressor.ratio.value = 3;
-    this.compressor.attack.value = 0.01;
-    this.compressor.release.value = 0.2;
+    this.compressor.threshold.value = -18;
+    this.compressor.knee.value = 18;
+    this.compressor.ratio.value = 2.5;
+    this.compressor.attack.value = 0.012;
+    this.compressor.release.value = 0.18;
 
-    // Soft peak limiter — stops harsh clip noise on loud peaks
+    // Soft peak limiter — catch clips without squashing speech loudness
     this.limiter = this.ctx.createDynamicsCompressor();
-    this.limiter.threshold.value = -6;
-    this.limiter.knee.value = 4;
-    this.limiter.ratio.value = 12;
+    this.limiter.threshold.value = -2.5;
+    this.limiter.knee.value = 3;
+    this.limiter.ratio.value = 10;
     this.limiter.attack.value = 0.002;
-    this.limiter.release.value = 0.12;
+    this.limiter.release.value = 0.1;
 
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 2048;
@@ -602,10 +602,13 @@ export class VoiceEngine {
       band.Q.setTargetAtTime(enabled ? 3.2 + i * 0.4 : 1, t, 0.03);
     }
 
-    // Soft amp: 0.85 at 0 → ~1.15 at 100
-    const amp = enabled ? 0.85 + (settings.amplifier / 100) * 0.3 : 1;
+    // Amp: ~1.2 at 0 → ~2.6 at 100. Pitch/OLA paths lose loudness — compensate when wet.
+    let amp = enabled ? 1.2 + (settings.amplifier / 100) * 1.4 : 1;
+    if (usePitch) amp *= 1.28;
     this.ampGain.gain.setTargetAtTime(amp, t, 0.04);
-    this.masterGain.gain.setTargetAtTime(settings.volume / 100, t, 0.04);
+    // Volume 0–100 maps to 0–1.15 so 100 is slightly hot into the cable (Telegram often quieter)
+    const master = (settings.volume / 100) * 1.15;
+    this.masterGain.gain.setTargetAtTime(master, t, 0.04);
 
     const charKey = `${settings.race}|${settings.gender}|${settings.age}|${character.pitchSemitones.toFixed(1)}|${character.formantRatio.toFixed(2)}`;
     if (charKey !== this.lastCharacterLog) {
@@ -642,7 +645,7 @@ export class VoiceEngine {
     // Monitoring while the cable path is the default speakers causes feedback.
     const monitorOn = settings.monitorLocally && hasVirtualOut;
     if (this.monitorGain) {
-      this.monitorGain.gain.setTargetAtTime(monitorOn ? 0.55 : 0, t, 0.04);
+      this.monitorGain.gain.setTargetAtTime(monitorOn ? 0.85 : 0, t, 0.04);
     }
     if (settings.monitorLocally && !hasVirtualOut) {
       this.log('warn', 'monitor ignored — select CABLE Input / BlackHole as Output first');
@@ -812,20 +815,22 @@ export class VoiceEngine {
     return true;
   }
 
-  playPrehear(): boolean {
+  playPrehear(fromSeconds?: number): boolean {
     if (!this.ctx || !this.prehearGain) return false;
     if (!this.prehearBuffer && !this.preparePrehear()) return false;
     if (!this.prehearBuffer) return false;
 
     this.stopPrehearSourceOnly();
 
-    const offset = this.prehearPaused ? this.prehearPauseAt : 0;
-    if (offset >= this.prehearDuration - 0.02) {
-      this.prehearPauseAt = 0;
+    let startAt = 0;
+    if (typeof fromSeconds === 'number' && Number.isFinite(fromSeconds)) {
+      startAt = Math.max(0, Math.min(this.prehearDuration - 0.02, fromSeconds));
+    } else if (this.prehearPaused) {
+      startAt = this.prehearPauseAt;
+      if (startAt >= this.prehearDuration - 0.02) startAt = 0;
     }
-    const startAt = this.prehearPaused ? this.prehearPauseAt : 0;
 
-    // Save a fresh play (not resume) for debugging — last 2 WAVs in logs folder.
+    // Save a fresh play from the start for debugging — last 2 WAVs in logs folder.
     if (startAt < 0.02) {
       void this.savePrehearDebugDump();
     }
@@ -849,8 +854,19 @@ export class VoiceEngine {
     this.prehearStartedAt = this.ctx.currentTime - startAt;
     this.prehearPlaying = true;
     this.prehearPaused = false;
+    this.prehearPauseAt = startAt;
     this.emitPrehear();
     return true;
+  }
+
+  /** Jump to a time in the prehear buffer (seconds) and play from there. */
+  seekPrehear(seconds: number): boolean {
+    if (!this.ctx || !this.ring) return false;
+    if (!this.prehearBuffer && !this.preparePrehear()) return false;
+    if (!this.prehearBuffer || this.prehearDuration <= 0) return false;
+
+    const t = Math.max(0, Math.min(this.prehearDuration - 0.02, seconds));
+    return this.playPrehear(t);
   }
 
   private async savePrehearDebugDump() {
@@ -966,13 +982,13 @@ export class VoiceEngine {
 
       // Soft noise gate — close on room hiss, open on speech
       if (this.noiseGate && this.ctx) {
-        const open = rawRms > 0.018 ? 1 : rawRms > 0.008 ? (rawRms - 0.008) / 0.01 : 0.02;
-        this.noiseGate.gain.setTargetAtTime(open, this.ctx.currentTime, 0.04);
+        const open = rawRms > 0.014 ? 1 : rawRms > 0.006 ? (rawRms - 0.006) / 0.008 : 0.05;
+        this.noiseGate.gain.setTargetAtTime(open, this.ctx.currentTime, 0.035);
       }
-      // Auto input trim when mic is clipping hot
+      // Only trim when the mic is truly clipping; otherwise keep full level
       if (this.inputTrim && this.ctx) {
-        const target = rawPeak > 0.85 ? 0.55 : rawPeak > 0.65 ? 0.7 : 0.85;
-        this.inputTrim.gain.setTargetAtTime(target, this.ctx.currentTime, 0.08);
+        const target = rawPeak > 0.92 ? 0.78 : rawPeak > 0.82 ? 0.9 : 1;
+        this.inputTrim.gain.setTargetAtTime(target, this.ctx.currentTime, 0.1);
       }
 
       if (rms < 0.0008 && rawRms < 0.0008) {

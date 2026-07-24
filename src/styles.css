@@ -297,6 +297,16 @@ body {
   border-radius: 8px;
 }
 
+.prehear-wave.seekable {
+  cursor: pointer;
+  touch-action: none;
+}
+
+.prehear-wave.seekable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
 .prehear-controls {
   display: flex;
   align-items: center;

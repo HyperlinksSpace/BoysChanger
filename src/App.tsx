@@ -643,6 +643,7 @@ export default function App() {
           labels={{
             title: tr('prehear'),
             hint: systemMsg || tr('prehearHint'),
+            seekHint: tr('prehearSeekHint'),
             play: tr('prehearPlay'),
             pause: tr('prehearPause'),
             needEngine: tr('prehearNeedEngine'),
@@ -653,6 +654,9 @@ export default function App() {
             engineRef.current.playPrehear();
           }}
           onPause={() => engineRef.current.pausePrehear()}
+          onSeek={(seconds) => {
+            engineRef.current.seekPrehear(seconds);
+          }}
         />
       </section>
 
