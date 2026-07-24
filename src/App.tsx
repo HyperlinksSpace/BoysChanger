@@ -12,6 +12,7 @@ import {
 } from './audio/types';
 import { PrehearPanel } from './components/PrehearPanel';
 import { SoundLibraryPanel } from './components/SoundLibraryPanel';
+import { TelegramGuideModal } from './components/TelegramGuideModal';
 import { LOCALES, detectLocale, t, type Locale, type MessageKey } from './i18n';
 import './styles.css';
 
@@ -141,7 +142,7 @@ export default function App() {
     peaks: new Float32Array(160),
   });
   const [systemMsg, setSystemMsg] = useState('');
-  const [telegramGuideOpen, setTelegramGuideOpen] = useState(true);
+  const [telegramGuideOpen, setTelegramGuideOpen] = useState(false);
   const [cableInstallerReady, setCableInstallerReady] = useState(false);
   const [cableOsInstalled, setCableOsInstalled] = useState(false);
   const [cableInstallBusy, setCableInstallBusy] = useState(false);
@@ -449,6 +450,7 @@ export default function App() {
       const virtual = outs.find((d) => looksLikeVirtualOutput(d.label));
       if (!virtual) {
         setSystemMsg(tr('telegramCableMissing'));
+        setTelegramGuideOpen(true);
         setStatusKey('statusIdle');
         return;
       }
@@ -654,6 +656,107 @@ export default function App() {
         />
       </section>
 
+      <section className="panel compact character">
+        <h2>{tr('voiceCharacter')}</h2>
+        <div className="preset-rows">
+          <div className="preset-row">
+            <span className="preset-label">{tr('race')}</span>
+            <div className="chips">
+              {RACES.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  className={settings.race === r ? 'chip active' : 'chip'}
+                  onClick={() => update('race', r)}
+                >
+                  {tr(`race_${r}` as MessageKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="preset-row">
+            <span className="preset-label">{tr('gender')}</span>
+            <div className="chips">
+              {GENDERS.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  className={settings.gender === g ? 'chip active' : 'chip'}
+                  onClick={() => update('gender', g)}
+                >
+                  {tr(`gender_${g}` as MessageKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="preset-row">
+            <span className="preset-label">{tr('age')}</span>
+            <div className="chips">
+              {AGES.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  className={settings.age === a ? 'chip active' : 'chip'}
+                  onClick={() => update('age', a)}
+                >
+                  {tr(`age_${a}` as MessageKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="sliders">
+          <label>
+            <span>
+              {tr('timbre')} <em>{settings.timbre}</em>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={settings.timbre}
+              onChange={(e) => update('timbre', Number(e.target.value))}
+            />
+          </label>
+          <label>
+            <span>
+              {tr('amplifier')} <em>{settings.amplifier}</em>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={settings.amplifier}
+              onChange={(e) => update('amplifier', Number(e.target.value))}
+            />
+          </label>
+          <label>
+            <span>
+              {tr('volume')} <em>{settings.volume}</em>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={settings.volume}
+              onChange={(e) => update('volume', Number(e.target.value))}
+            />
+          </label>
+          <label>
+            <span>
+              {tr('effectsMix')} <em>{settings.effectMix}</em>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={settings.effectMix}
+              onChange={(e) => update('effectMix', Number(e.target.value))}
+            />
+          </label>
+        </div>
+      </section>
+
       <section className="panel compact devices">
         <div className="panel-head">
           <h2>{tr('audioRouting')}</h2>
@@ -695,8 +798,16 @@ export default function App() {
           <button type="button" className="secondary" onClick={() => void refreshDevices()}>
             {tr('refreshDevices')}
           </button>
-          <button type="button" className="primary-action" disabled={busy} onClick={() => void setupForTelegram()}>
+          <button
+            type="button"
+            className="primary-action"
+            disabled={busy}
+            onClick={() => void setupForTelegram()}
+          >
             {tr('telegramSetupBtn')}
+          </button>
+          <button type="button" className="secondary" onClick={() => setTelegramGuideOpen(true)}>
+            {tr('telegramGuideBtn')}
           </button>
           <button type="button" className="secondary" onClick={() => void applySystemWide()}>
             {tr('applySystem')}
@@ -724,194 +835,51 @@ export default function App() {
             {tr('monitorLocally')}
           </label>
         </div>
+        <ul className="telegram-checks inline-status">
+          <li className={cablePresent ? 'ok' : 'bad'}>
+            {cablePresent ? tr('telegramCableOk') : tr('cableStatusMissing')}
+          </li>
+          <li className={outputIsCable ? 'ok' : 'bad'}>
+            {outputIsCable ? tr('telegramOutputOk') : tr('telegramOutputNeed')}
+          </li>
+        </ul>
       </section>
 
-      <section className="panel compact telegram-guide">
-        <div className="panel-head">
-          <h2>{tr('telegramTitle')}</h2>
-          <button
-            type="button"
-            className="secondary guide-toggle"
-            onClick={() => setTelegramGuideOpen((v) => !v)}
-          >
-            {telegramGuideOpen ? '−' : '+'}
-          </button>
+      <TelegramGuideModal
+        open={telegramGuideOpen}
+        onClose={() => setTelegramGuideOpen(false)}
+        platform={platform}
+        cablePresent={cablePresent}
+        cableInstallerReady={cableInstallerReady}
+        outputIsCable={outputIsCable}
+        engineOn={engineOn}
+        busy={busy}
+        cableInstallBusy={cableInstallBusy}
+        tr={tr}
+        onSetup={() => {
+          setTelegramGuideOpen(false);
+          void setupForTelegram();
+        }}
+        onInstallCable={() => void installVirtualCable()}
+        onOpenSound={() => void window.boysChanger?.openSoundInputSettings()}
+      />
+
+      <section className="panel compact effects">
+        <h2>{tr('effects')}</h2>
+        <div className="effects-grid">
+          {FX_IDS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={settings.effects[id] ? 'fx on' : 'fx'}
+              onClick={() => toggleEffect(id)}
+              title={tr(`fx_${id}_desc` as MessageKey)}
+            >
+              <strong>{tr(`fx_${id}` as MessageKey)}</strong>
+            </button>
+          ))}
         </div>
-        {telegramGuideOpen ? (
-          <div className="telegram-body">
-            <p className="telegram-why">{tr('telegramWhy')}</p>
-            <ul className="telegram-checks">
-              <li className={cablePresent ? 'ok' : 'bad'}>
-                {cablePresent
-                  ? tr('telegramCableOk')
-                  : cableInstallerReady
-                    ? `${tr('telegramCableMissing')} (${tr('cableBundledOk')})`
-                    : tr('telegramCableMissing')}
-              </li>
-              <li className={outputIsCable ? 'ok' : 'bad'}>
-                {outputIsCable ? tr('telegramOutputOk') : tr('telegramOutputNeed')}
-              </li>
-              <li className={engineOn ? 'ok' : 'bad'}>
-                {engineOn ? tr('telegramEngineOk') : tr('telegramEngineNeed')}
-              </li>
-            </ul>
-            <ol className="telegram-steps">
-              <li>{tr('telegramStep1')}</li>
-              <li>{platform === 'darwin' ? tr('telegramStep2Mac') : tr('telegramStep2Win')}</li>
-              <li>{tr('telegramStep3')}</li>
-              <li>{platform === 'darwin' ? tr('telegramStep4Mac') : tr('telegramStep4Win')}</li>
-              <li>{tr('telegramStep5')}</li>
-            </ol>
-            <p className="telegram-note">
-              {platform === 'darwin' ? tr('telegramVoiceMsgMac') : tr('telegramVoiceMsgWin')}
-            </p>
-            <p className="telegram-note muted">{tr('telegramDesktopOnly')}</p>
-            <p className="telegram-note muted">{tr('cableDonate')}</p>
-            <div className="row actions">
-              <button type="button" className="primary-action" disabled={busy} onClick={() => void setupForTelegram()}>
-                {tr('telegramSetupBtn')}
-              </button>
-              {!cablePresent ? (
-                <button
-                  type="button"
-                  className="primary-action"
-                  disabled={busy || cableInstallBusy}
-                  onClick={() => void installVirtualCable()}
-                >
-                  {platform === 'darwin' ? tr('telegramInstallCableMac') : tr('telegramInstallCableWin')}
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => void window.boysChanger?.openSoundInputSettings()}
-              >
-                {tr('telegramOpenSound')}
-              </button>
-            </div>
-          </div>
-        ) : null}
       </section>
-
-      <div className="two-col">
-        <section className="panel compact character">
-          <h2>{tr('voiceCharacter')}</h2>
-          <div className="preset-rows">
-            <div className="preset-row">
-              <span className="preset-label">{tr('race')}</span>
-              <div className="chips">
-                {RACES.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    className={settings.race === r ? 'chip active' : 'chip'}
-                    onClick={() => update('race', r)}
-                  >
-                    {tr(`race_${r}` as MessageKey)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="preset-row">
-              <span className="preset-label">{tr('gender')}</span>
-              <div className="chips">
-                {GENDERS.map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    className={settings.gender === g ? 'chip active' : 'chip'}
-                    onClick={() => update('gender', g)}
-                  >
-                    {tr(`gender_${g}` as MessageKey)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="preset-row">
-              <span className="preset-label">{tr('age')}</span>
-              <div className="chips">
-                {AGES.map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    className={settings.age === a ? 'chip active' : 'chip'}
-                    onClick={() => update('age', a)}
-                  >
-                    {tr(`age_${a}` as MessageKey)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="sliders">
-            <label>
-              <span>
-                {tr('timbre')} <em>{settings.timbre}</em>
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={settings.timbre}
-                onChange={(e) => update('timbre', Number(e.target.value))}
-              />
-            </label>
-            <label>
-              <span>
-                {tr('amplifier')} <em>{settings.amplifier}</em>
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={settings.amplifier}
-                onChange={(e) => update('amplifier', Number(e.target.value))}
-              />
-            </label>
-            <label>
-              <span>
-                {tr('volume')} <em>{settings.volume}</em>
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={settings.volume}
-                onChange={(e) => update('volume', Number(e.target.value))}
-              />
-            </label>
-            <label>
-              <span>
-                {tr('effectsMix')} <em>{settings.effectMix}</em>
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={settings.effectMix}
-                onChange={(e) => update('effectMix', Number(e.target.value))}
-              />
-            </label>
-          </div>
-        </section>
-
-        <section className="panel compact effects">
-          <h2>{tr('effects')}</h2>
-          <div className="effects-grid">
-            {FX_IDS.map((id) => (
-              <button
-                key={id}
-                type="button"
-                className={settings.effects[id] ? 'fx on' : 'fx'}
-                onClick={() => toggleEffect(id)}
-                title={tr(`fx_${id}_desc` as MessageKey)}
-              >
-                <strong>{tr(`fx_${id}` as MessageKey)}</strong>
-              </button>
-            ))}
-          </div>
-        </section>
-      </div>
 
       <SoundLibraryPanel
         labels={{

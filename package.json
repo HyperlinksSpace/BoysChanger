@@ -13,15 +13,17 @@
   "scripts": {
     "dev": "vite",
     "icons": "node scripts/build-icons.js",
+    "installer-art": "node scripts/build-installer-art.js",
     "fetch:vbcable": "node scripts/fetch-vbcable.js",
-    "prebuild": "node scripts/build-icons.js && node scripts/fetch-vbcable.js",
+    "prebuild": "node scripts/build-icons.js && node scripts/build-installer-art.js && node scripts/fetch-vbcable.js",
     "build": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json --noEmit && vite build && electron-builder --publish never",
     "build:dir": "vite build && electron-builder --dir --publish never",
     "preview": "vite preview",
     "electron:dev": "vite",
-    "pack:win": "npm run icons && npm run fetch:vbcable && vite build && electron-builder --win --publish never",
+    "pack:win": "node scripts/pack-setup.js",
+    "pack:win:nsis": "npm run icons && npm run installer-art && npm run fetch:vbcable && vite build && electron-builder --win --publish never",
     "pack:mac": "npm run icons && vite build && electron-builder --mac --publish never",
-    "pack:all": "npm run icons && npm run fetch:vbcable && vite build && electron-builder --win --mac --publish never"
+    "pack:all": "node scripts/pack-setup.js && npm run pack:mac"
   },
   "build": {
     "appId": "com.hyperlinksspace.boyschanger",
@@ -68,7 +70,11 @@
       {
         "from": "vendor/vbcable",
         "to": "vbcable",
-        "filter": ["**/*", "!**/*.zip", "!README.md"]
+        "filter": [
+          "**/*",
+          "!**/*.zip",
+          "!README.md"
+        ]
       }
     ],
     "publish": [
@@ -124,9 +130,14 @@
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
       "include": "build/installer.nsh",
       "perMachine": true,
-      "allowElevation": true
+      "allowElevation": true,
+      "runAfterFinish": false,
+      "deleteAppDataOnUninstall": false
     }
   },
   "dependencies": {
@@ -140,6 +151,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.2",
     "png-to-ico": "^2.1.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

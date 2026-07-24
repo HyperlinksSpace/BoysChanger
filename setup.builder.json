@@ -1,0 +1,40 @@
+{
+  "appId": "com.hyperlinksspace.boyschanger.setup",
+  "productName": "BoysChanger Setup",
+  "copyright": "HyperlinksSpace",
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": [
+    "dist/setup.html",
+    "dist/assets/**/*",
+    "dist/logo.png",
+    "dist-electron/setupMain.js",
+    "dist-electron/setupPreload.js",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "release/win-unpacked",
+      "to": "payload"
+    },
+    {
+      "from": "build/icon.png",
+      "to": "icon.png"
+    }
+  ],
+  "win": {
+    "icon": "build/icon.ico",
+    "target": [
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "artifactName": "BoysChanger-Setup-${version}-Windows-${arch}.${ext}"
+  },
+  "portable": {
+    "artifactName": "BoysChanger-Setup-${version}-Windows-${arch}.${ext}"
+  }
+}

@@ -25,6 +25,39 @@ body,
   min-height: 100%;
 }
 
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-dim) transparent;
+}
+
+/* Custom scroll indicator (WebKit) */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent-dim), color-mix(in srgb, var(--accent) 55%, #1a2a20));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  min-height: 40px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 body {
   font-family: var(--font-body);
   color: var(--ink);
@@ -33,6 +66,7 @@ body {
     radial-gradient(700px 380px at 100% 0%, rgba(255, 122, 69, 0.1), transparent 50%),
     linear-gradient(160deg, var(--bg0), var(--bg1) 45%, #0e1814);
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .app {
@@ -460,8 +494,102 @@ button.primary-action:disabled {
   color: var(--ink);
 }
 
-.telegram-note.muted {
-  color: var(--muted);
+.telegram-checks.inline-status {
+  margin-top: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.telegram-checks.inline-status li {
+  flex: 1;
+  min-width: 180px;
+  font-size: 11px;
+  padding: 5px 8px;
+}
+
+/* —— Modal / Telegram guide —— */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(4, 10, 8, 0.72);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: modal-fade 0.18s ease-out;
+}
+
+@keyframes modal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-sheet {
+  width: min(520px, 100%);
+  max-height: min(86vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(500px 220px at 0% 0%, rgba(212, 255, 74, 0.12), transparent 55%),
+    var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  animation: modal-rise 0.22s ease-out;
+}
+
+@keyframes modal-rise {
+  from {
+    transform: translateY(10px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-head h2 {
+  margin: 0;
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  font-weight: 400;
+}
+
+.modal-scroll {
+  padding: 12px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--line);
 }
 
 button.primary,

@@ -46,20 +46,18 @@ Shape race, gender, age, timbre, amplifier, and volume; stack echo, wah-wah, dis
 
 ## Setup (users)
 
+## Setup (users)
+
 ### Windows
 
-1. Install BoysChanger from [Releases](https://github.com/HyperlinksSpace/BoysChanger/releases) — the installer **bundles VB-CABLE** (VB-Audio donationware) and can install it during setup
-2. **Reboot** after VB-CABLE install (required for the driver to appear)
-3. In the app, set **Input** to your **real hardware mic** (not Voicemod / CABLE)
-4. Set **Output** to **CABLE Input** (auto-selected when the cable is found)
-5. Click **Setup for Telegram** / **Apply as system input**
+1. Download **BoysChanger Setup** from [Releases](https://github.com/HyperlinksSpace/BoysChanger/releases) (custom installer UI)
+2. Choose install folder → **Install** (VB-CABLE is installed quietly)
+3. On the finish screen choose **Reboot now** or **Reboot later** (needed so Windows registers CABLE Output)
+4. Open BoysChanger: **Input** = real mic, **Output** = **CABLE Input**
+5. Click **Setup for Telegram** (full guide: **Telegram guide** button)
 6. Turn the changer **ON**
 
-If the cable is missing: open the Telegram setup panel → **Install virtual cable** (runs the bundled installer; accept the Windows driver prompt).
-
-VB-CABLE is by [VB-Audio](https://www.vb-cable.com/) (donationware — donations welcome).
-
-Optional: `Install-Module AudioDeviceCmdlets` is no longer required; BoysChanger can set the default mic without it.
+Classic NSIS installer is still published for auto-update compatibility.
 
 ### macOS
 
