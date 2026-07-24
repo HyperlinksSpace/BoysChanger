@@ -84,40 +84,48 @@ export const DEFAULT_SETTINGS: VoiceSettings = {
 export const PREHEAR_SECONDS = 11;
 export const PREHEAR_READY_SECONDS = 0.4;
 
-/**
- * Character → clearly audible EQ / pitch targets (stylistic voice colors).
- */
-export function resolveVoiceCharacter(s: VoiceSettings): {
+export type VoiceCharacter = {
+  /** Fundamental pitch shift in semitones */
   pitchSemitones: number;
-  lowGain: number;
-  midGain: number;
-  highGain: number;
-  midFreq: number;
-} {
+  /**
+   * Vocal-tract / formant scale (independent of pitch).
+   * <1 = longer tract (deeper “body”), >1 = shorter tract (brighter/smaller).
+   * This is what makes voices sound like different people — not just higher/lower.
+   */
+  formantRatio: number;
+  /** Peaking formant band gains (dB) at F1..F4 * formantRatio */
+  formantGains: [number, number, number, number];
+  /** Base formant center frequencies before formantRatio (Hz) */
+  formantBases: [number, number, number, number];
+};
+
+/**
+ * Resolve a clearly distinct voice morph.
+ * Based on common VC practice: independent pitch + formant (tract length) scaling
+ * (see SoundTouch formant correction / Signalsmith formant factor / audiojs shift-formant).
+ */
+export function resolveVoiceCharacter(s: VoiceSettings): VoiceCharacter {
   let pitch = 0;
-  let low = 0;
-  let mid = 0;
-  let high = 0;
-  let midFreq = 1200;
+  let formant = 1;
+  // Base speech formants F1–F4-ish
+  const formantBases: [number, number, number, number] = [500, 900, 1500, 2800];
+  let gains: [number, number, number, number] = [4, 5, 4, 2];
 
   switch (s.gender) {
     case 'feminine':
-      pitch += 3.5;
-      mid += 4;
-      high += 5;
-      midFreq = 1700;
+      pitch += 6;
+      formant *= 1.32;
+      gains = [4, 8, 8, 6];
       break;
     case 'masculine':
-      pitch -= 3.5;
-      low += 5;
-      high -= 3;
-      midFreq = 850;
+      pitch -= 6;
+      formant *= 0.74;
+      gains = [9, 5, 2, 0];
       break;
     case 'androgynous':
-      pitch += 1.2;
-      mid += 2;
-      high += 1.5;
-      midFreq = 1400;
+      pitch += 2;
+      formant *= 1.12;
+      gains = [4, 7, 6, 4];
       break;
     default:
       break;
@@ -125,81 +133,79 @@ export function resolveVoiceCharacter(s: VoiceSettings): {
 
   switch (s.age) {
     case 'child':
-      pitch += 5;
-      high += 5;
-      mid += 3;
-      low -= 2;
-      midFreq = 1900;
+      pitch += 7;
+      formant *= 1.35;
+      gains = [2, 6, 9, 7];
       break;
     case 'teen':
-      pitch += 2.5;
-      high += 3;
-      midFreq = 1600;
+      pitch += 3.5;
+      formant *= 1.16;
+      gains = [3, 7, 7, 5];
       break;
     case 'young':
-      pitch += 1;
-      high += 2;
+      pitch += 1.5;
+      formant *= 1.06;
       break;
     case 'elder':
-      pitch -= 1.8;
-      low += 3;
-      high -= 3;
-      midFreq = 950;
+      pitch -= 3;
+      formant *= 0.86;
+      gains = [8, 4, 1, -1];
       break;
     default:
       break;
   }
 
-  // Stylistic “race/region” voice colors — distinct formant tilts
+  // Regional / stylistic tract + pitch colors (entertainment profiles).
+  // Differences must be large — subtle EQ alone is not audible as a “different person”.
   switch (s.race) {
     case 'latin':
-      pitch += 0.8;
-      low += 2;
-      mid += 4;
-      high += 2;
-      midFreq = 1350;
+      pitch += 1.8;
+      formant *= 1.1;
+      gains = [gains[0] + 1, gains[1] + 4, gains[2] + 3, gains[3] + 2];
       break;
     case 'european':
-      mid += 1.5;
-      high += 2.5;
-      midFreq = 1250;
+      pitch += 0.2;
+      formant *= 1.0;
+      gains = [gains[0], gains[1] + 1, gains[2] + 2, gains[3] + 1];
       break;
     case 'african':
-      pitch -= 1.2;
-      low += 6;
-      mid += 2;
-      high -= 3;
-      midFreq = 800;
+      pitch -= 2.5;
+      formant *= 0.78;
+      gains = [gains[0] + 5, gains[1] + 2, gains[2] - 2, gains[3] - 2];
       break;
     case 'asian':
-      pitch += 1.5;
-      low -= 2;
-      mid += 2;
-      high += 5;
-      midFreq = 1650;
+      pitch += 3;
+      formant *= 1.26;
+      gains = [gains[0] - 2, gains[1] + 2, gains[2] + 5, gains[3] + 5];
       break;
     case 'middleEastern':
-      pitch += 0.4;
-      low += 1;
-      mid += 5;
-      high += 1;
-      midFreq = 1100;
+      pitch += 1;
+      formant *= 1.14;
+      gains = [gains[0] + 2, gains[1] + 5, gains[2] + 4, gains[3] + 1];
       break;
     default:
       break;
   }
 
-  // Timbre: stronger tilt so the slider is obvious
   const tilt = (s.timbre - 50) / 50;
-  high += tilt * 5;
-  low -= tilt * 3.5;
-  pitch += tilt * 1.2;
+  pitch += tilt * 2.5;
+  formant *= 1 + tilt * 0.14;
+  gains = [
+    gains[0] - tilt * 3,
+    gains[1] + tilt * 1,
+    gains[2] + tilt * 4,
+    gains[3] + tilt * 5,
+  ];
 
   return {
-    pitchSemitones: Math.max(-8, Math.min(8, pitch)),
-    lowGain: Math.max(-10, Math.min(10, low)),
-    midGain: Math.max(-10, Math.min(10, mid)),
-    highGain: Math.max(-10, Math.min(10, high)),
-    midFreq,
+    pitchSemitones: Math.max(-12, Math.min(12, pitch)),
+    formantRatio: Math.max(0.65, Math.min(1.5, formant)),
+    formantGains: gains.map((g) => Math.max(-6, Math.min(14, g))) as [
+      number,
+      number,
+      number,
+      number,
+    ],
+    formantBases,
   };
 }

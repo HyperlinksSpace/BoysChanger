@@ -1,5 +1,11 @@
 import { RingBuffer } from './RingBuffer';
-import { loadPitchWorklet } from './pitchWorklet';
+import {
+  applyPitchMorph,
+  createPitchNode,
+  loadPitchWorklet,
+  type PitchBackend,
+  type PitchMorphNode,
+} from './pitchWorklet';
 import {
   DEFAULT_SETTINGS,
   PREHEAR_READY_SECONDS,
@@ -33,7 +39,9 @@ export class VoiceEngine {
   private ampGain: GainNode | null = null;
   private pitchBypass: GainNode | null = null;
   private pitchWet: GainNode | null = null;
-  private pitchNode: AudioWorkletNode | null = null;
+  private pitchNode: PitchMorphNode | null = null;
+  private pitchBackend: PitchBackend = 'none';
+  private formantBands: BiquadFilterNode[] = [];
   private formantLow: BiquadFilterNode | null = null;
   private formantMid: BiquadFilterNode | null = null;
   private formantHigh: BiquadFilterNode | null = null;
@@ -158,7 +166,9 @@ export class VoiceEngine {
 
     this.ctx = new AudioContext({ latencyHint: 'interactive' });
     if (this.ctx.state === 'suspended') await this.ctx.resume();
-    this.workletReady = await loadPitchWorklet(this.ctx);
+    this.pitchBackend = await loadPitchWorklet(this.ctx);
+    this.workletReady = this.pitchBackend !== 'none';
+    this.log('info', 'pitch backend', { backend: this.pitchBackend });
 
     const wantsMonitor = settings.monitorLocally;
     // Mild browser noise suppression helps USB mics (C-Media); keep AGC/echo off for changer quality.
@@ -253,23 +263,22 @@ export class VoiceEngine {
     this.analyser.smoothingTimeConstant = 0.35;
     this.prehearTimeData = new Float32Array(this.analyser.fftSize);
 
-    this.formantLow = this.ctx.createBiquadFilter();
-    this.formantLow.type = 'lowshelf';
-    this.formantLow.frequency.value = 220;
-    this.formantLow.gain.value = 0;
+    // 4 resonant formant bands — frequencies scale with formantRatio (vocal-tract length).
+    // This is the standard lightweight approach to make voices sound like different people
+    // (pitch alone only makes the same person higher/lower).
+    this.formantBands = [0, 1, 2, 3].map(() => {
+      const f = this.ctx!.createBiquadFilter();
+      f.type = 'peaking';
+      f.Q.value = 3.5;
+      f.gain.value = 0;
+      f.frequency.value = 1000;
+      return f;
+    });
+    this.formantLow = this.formantBands[0];
+    this.formantMid = this.formantBands[1];
+    this.formantHigh = this.formantBands[2];
 
-    this.formantMid = this.ctx.createBiquadFilter();
-    this.formantMid.type = 'peaking';
-    this.formantMid.frequency.value = 1200;
-    this.formantMid.Q.value = 0.9;
-    this.formantMid.gain.value = 0;
-
-    this.formantHigh = this.ctx.createBiquadFilter();
-    this.formantHigh.type = 'highshelf';
-    this.formantHigh.frequency.value = 3200;
-    this.formantHigh.gain.value = 0;
-
-    // Mic → gate → trim → HPF → amp → (dry|pitch) → formants → LPF → comp → FX → limiter → master
+    // Mic → gate → trim → HPF → amp → (dry|pitch) → formant bank → LPF → comp → FX → limiter → master
     this.source.connect(this.noiseGate);
     this.noiseGate.connect(this.inputTrim);
     this.inputTrim.connect(this.highpass);
@@ -282,24 +291,24 @@ export class VoiceEngine {
     this.rawTimeData = new Float32Array(this.rawAnalyser.fftSize);
     this.source.connect(this.rawAnalyser);
 
+    const formantIn = this.formantBands[0];
     this.ampGain.connect(this.pitchBypass);
-    this.pitchBypass.connect(this.formantLow);
+    this.pitchBypass.connect(formantIn);
 
     if (this.workletReady) {
-      this.pitchNode = new AudioWorkletNode(this.ctx, 'pitch-shift-processor', {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        outputChannelCount: [1],
-      });
-      this.ampGain.connect(this.pitchNode);
-      this.pitchNode.connect(this.pitchWet);
-      this.pitchWet.connect(this.formantLow);
+      this.pitchNode = createPitchNode(this.ctx, this.pitchBackend);
+      if (this.pitchNode) {
+        this.ampGain.connect(this.pitchNode);
+        this.pitchNode.connect(this.pitchWet);
+        this.pitchWet.connect(formantIn);
+      }
     }
 
-    this.formantLow.connect(this.formantMid);
-    this.formantMid.connect(this.formantHigh);
-    this.formantHigh.connect(this.lowpass);
-    this.lowpass.connect(this.compressor);
+    for (let i = 0; i < this.formantBands.length - 1; i++) {
+      this.formantBands[i].connect(this.formantBands[i + 1]);
+    }
+    this.formantBands[this.formantBands.length - 1].connect(this.lowpass!);
+    this.lowpass!.connect(this.compressor);
     this.compressor.connect(this.effectsInput);
 
     this.effectsInput.connect(this.effectsDry);
@@ -547,9 +556,7 @@ export class VoiceEngine {
       !this.effectsDry ||
       !this.effectsWet ||
       !this.pitchBypass ||
-      !this.formantLow ||
-      !this.formantMid ||
-      !this.formantHigh
+      this.formantBands.length < 4
     ) {
       return;
     }
@@ -557,33 +564,42 @@ export class VoiceEngine {
     const enabled = settings.enabled;
     const character = resolveVoiceCharacter(settings);
     const pitchAbs = Math.abs(character.pitchSemitones);
-    const usePitch = enabled && this.workletReady && this.pitchNode && pitchAbs >= 0.25;
-    const ratio = usePitch ? Math.pow(2, character.pitchSemitones / 12) : 1;
+    const formantDelta = Math.abs(character.formantRatio - 1);
+    // Full wet whenever pitch or tract morph is active — dry blend made every preset sound the same.
+    const usePitch = Boolean(
+      enabled &&
+        this.workletReady &&
+        this.pitchNode &&
+        (pitchAbs >= 0.15 || formantDelta >= 0.03),
+    );
 
     if (this.pitchNode) {
-      this.pitchNode.port.postMessage({ ratio });
+      applyPitchMorph(
+        this.pitchNode,
+        this.pitchBackend,
+        character.pitchSemitones,
+        character.formantRatio,
+        usePitch,
+      );
     }
 
-    // Stronger wet when pitch shift is large so gender/age/race are audible
     const t = this.ctx.currentTime;
     if (usePitch) {
-      const wet = pitchAbs >= 3 ? 0.92 : pitchAbs >= 1.5 ? 0.82 : 0.7;
-      this.pitchBypass.gain.setTargetAtTime(1 - wet * 0.85, t, 0.04);
-      this.pitchWet!.gain.setTargetAtTime(wet, t, 0.04);
+      this.pitchBypass.gain.setTargetAtTime(0, t, 0.03);
+      this.pitchWet!.gain.setTargetAtTime(1, t, 0.03);
     } else {
-      this.pitchBypass.gain.setTargetAtTime(1, t, 0.05);
-      if (this.pitchWet) this.pitchWet.gain.setTargetAtTime(0, t, 0.05);
+      this.pitchBypass.gain.setTargetAtTime(1, t, 0.03);
+      if (this.pitchWet) this.pitchWet.gain.setTargetAtTime(0, t, 0.03);
     }
 
-    if (enabled) {
-      this.formantLow.gain.setTargetAtTime(character.lowGain, t, 0.04);
-      this.formantMid.gain.setTargetAtTime(character.midGain, t, 0.04);
-      this.formantHigh.gain.setTargetAtTime(character.highGain, t, 0.04);
-      this.formantMid.frequency.setTargetAtTime(character.midFreq, t, 0.04);
-    } else {
-      this.formantLow.gain.setTargetAtTime(0, t, 0.05);
-      this.formantMid.gain.setTargetAtTime(0, t, 0.05);
-      this.formantHigh.gain.setTargetAtTime(0, t, 0.05);
+    // Resonant formant bank — scales vocal-tract length on top of LPC correction
+    for (let i = 0; i < 4; i++) {
+      const band = this.formantBands[i];
+      const freq = character.formantBases[i] * (enabled ? character.formantRatio : 1);
+      const gain = enabled ? character.formantGains[i] : 0;
+      band.frequency.setTargetAtTime(Math.max(80, Math.min(12000, freq)), t, 0.03);
+      band.gain.setTargetAtTime(gain, t, 0.03);
+      band.Q.setTargetAtTime(enabled ? 3.2 + i * 0.4 : 1, t, 0.03);
     }
 
     // Soft amp: 0.85 at 0 → ~1.15 at 100
@@ -591,7 +607,7 @@ export class VoiceEngine {
     this.ampGain.gain.setTargetAtTime(amp, t, 0.04);
     this.masterGain.gain.setTargetAtTime(settings.volume / 100, t, 0.04);
 
-    const charKey = `${settings.race}|${settings.gender}|${settings.age}|${character.pitchSemitones.toFixed(1)}`;
+    const charKey = `${settings.race}|${settings.gender}|${settings.age}|${character.pitchSemitones.toFixed(1)}|${character.formantRatio.toFixed(2)}`;
     if (charKey !== this.lastCharacterLog) {
       this.lastCharacterLog = charKey;
       this.log('info', 'character applied', {
@@ -599,11 +615,14 @@ export class VoiceEngine {
         gender: settings.gender,
         age: settings.age,
         pitch: Number(character.pitchSemitones.toFixed(2)),
-        low: Number(character.lowGain.toFixed(2)),
-        mid: Number(character.midGain.toFixed(2)),
-        high: Number(character.highGain.toFixed(2)),
-        midFreq: character.midFreq,
+        formantRatio: Number(character.formantRatio.toFixed(3)),
+        formantHz: character.formantBases.map((f) =>
+          Math.round(f * character.formantRatio),
+        ),
+        formantGains: character.formantGains.map((g) => Number(g.toFixed(1))),
+        backend: this.pitchBackend,
         usePitch,
+        pitchWet: usePitch ? 1 : 0,
       });
     }
 
@@ -1057,6 +1076,10 @@ export class VoiceEngine {
     this.prehearBuffer = null;
     this.prehearGain = null;
     this.pitchNode = null;
+    this.formantBands = [];
+    this.formantLow = null;
+    this.formantMid = null;
+    this.formantHigh = null;
     this.running = false;
     this.lastSinkOk = false;
     this.peaksCache = new Float32Array(160) as Float32Array;
