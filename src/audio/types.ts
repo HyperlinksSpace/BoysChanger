@@ -1,4 +1,4 @@
-export type RacePreset = 'neutral' | 'bright' | 'warm' | 'deep' | 'airy';
+export type RacePreset = 'latin' | 'european' | 'african' | 'asian' | 'middleEastern';
 export type GenderPreset = 'neutral' | 'feminine' | 'masculine' | 'androgynous';
 export type AgePreset = 'child' | 'teen' | 'young' | 'adult' | 'elder';
 
@@ -31,9 +31,35 @@ export interface VoiceSettings {
   monitorLocally: boolean;
 }
 
+export const RACE_PRESETS: RacePreset[] = [
+  'latin',
+  'european',
+  'african',
+  'asian',
+  'middleEastern',
+];
+
+/** Map legacy bright/warm/deep/airy/neutral → new race ids */
+export function migrateRace(raw: unknown): RacePreset {
+  const v = String(raw || '');
+  if ((RACE_PRESETS as string[]).includes(v)) return v as RacePreset;
+  switch (v) {
+    case 'warm':
+      return 'latin';
+    case 'deep':
+      return 'african';
+    case 'airy':
+    case 'bright':
+      return 'asian';
+    case 'neutral':
+    default:
+      return 'european';
+  }
+}
+
 export const DEFAULT_SETTINGS: VoiceSettings = {
   enabled: false,
-  race: 'neutral',
+  race: 'european',
   gender: 'neutral',
   age: 'adult',
   timbre: 50,
@@ -59,8 +85,7 @@ export const PREHEAR_SECONDS = 11;
 export const PREHEAR_READY_SECONDS = 0.4;
 
 /**
- * Character → gentle EQ / mild pitch targets.
- * Amounts stay small so speech stays intelligible.
+ * Character → clearly audible EQ / pitch targets (stylistic voice colors).
  */
 export function resolveVoiceCharacter(s: VoiceSettings): {
   pitchSemitones: number;
@@ -77,20 +102,21 @@ export function resolveVoiceCharacter(s: VoiceSettings): {
 
   switch (s.gender) {
     case 'feminine':
-      pitch += 2.2;
-      mid += 2.5;
-      high += 3.5;
-      midFreq = 1600;
+      pitch += 3.5;
+      mid += 4;
+      high += 5;
+      midFreq = 1700;
       break;
     case 'masculine':
-      pitch -= 2.2;
-      low += 3;
-      high -= 2;
-      midFreq = 900;
+      pitch -= 3.5;
+      low += 5;
+      high -= 3;
+      midFreq = 850;
       break;
     case 'androgynous':
-      pitch += 0.6;
-      mid += 1;
+      pitch += 1.2;
+      mid += 2;
+      high += 1.5;
       midFreq = 1400;
       break;
     default:
@@ -99,65 +125,81 @@ export function resolveVoiceCharacter(s: VoiceSettings): {
 
   switch (s.age) {
     case 'child':
-      pitch += 3.5;
-      high += 4;
-      mid += 2;
-      midFreq = 1800;
+      pitch += 5;
+      high += 5;
+      mid += 3;
+      low -= 2;
+      midFreq = 1900;
       break;
     case 'teen':
-      pitch += 1.5;
-      high += 2;
-      midFreq = 1500;
+      pitch += 2.5;
+      high += 3;
+      midFreq = 1600;
       break;
     case 'young':
-      pitch += 0.5;
-      high += 1;
+      pitch += 1;
+      high += 2;
       break;
     case 'elder':
-      pitch -= 1;
-      low += 1.5;
-      high -= 1.5;
-      midFreq = 1000;
-      break;
-    default:
-      break;
-  }
-
-  switch (s.race) {
-    case 'bright':
-      high += 2;
-      mid += 1;
-      break;
-    case 'warm':
-      low += 2;
-      high -= 1;
-      break;
-    case 'deep':
-      pitch -= 1;
+      pitch -= 1.8;
       low += 3;
-      high -= 2;
-      midFreq = 850;
-      break;
-    case 'airy':
-      pitch += 0.8;
-      high += 3;
-      midFreq = 1700;
+      high -= 3;
+      midFreq = 950;
       break;
     default:
       break;
   }
 
-  // Timbre: gentle tilt only
+  // Stylistic “race/region” voice colors — distinct formant tilts
+  switch (s.race) {
+    case 'latin':
+      pitch += 0.8;
+      low += 2;
+      mid += 4;
+      high += 2;
+      midFreq = 1350;
+      break;
+    case 'european':
+      mid += 1.5;
+      high += 2.5;
+      midFreq = 1250;
+      break;
+    case 'african':
+      pitch -= 1.2;
+      low += 6;
+      mid += 2;
+      high -= 3;
+      midFreq = 800;
+      break;
+    case 'asian':
+      pitch += 1.5;
+      low -= 2;
+      mid += 2;
+      high += 5;
+      midFreq = 1650;
+      break;
+    case 'middleEastern':
+      pitch += 0.4;
+      low += 1;
+      mid += 5;
+      high += 1;
+      midFreq = 1100;
+      break;
+    default:
+      break;
+  }
+
+  // Timbre: stronger tilt so the slider is obvious
   const tilt = (s.timbre - 50) / 50;
-  high += tilt * 3;
-  low -= tilt * 2;
-  pitch += tilt * 0.6;
+  high += tilt * 5;
+  low -= tilt * 3.5;
+  pitch += tilt * 1.2;
 
   return {
-    pitchSemitones: pitch,
-    lowGain: low,
-    midGain: mid,
-    highGain: high,
+    pitchSemitones: Math.max(-8, Math.min(8, pitch)),
+    lowGain: Math.max(-10, Math.min(10, low)),
+    midGain: Math.max(-10, Math.min(10, mid)),
+    highGain: Math.max(-10, Math.min(10, high)),
     midFreq,
   };
 }

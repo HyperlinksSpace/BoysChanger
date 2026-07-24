@@ -84,6 +84,7 @@ export class VoiceEngine {
   private rawAnalyser: AnalyserNode | null = null;
   private rawTimeData: Float32Array | null = null;
   private silenceFrames = 0;
+  private lastCharacterLog = '';
   private onLog: ((level: string, msg: string, data?: unknown) => void) | null = null;
   private onMicWarning: ((code: string, detail?: string) => void) | null = null;
 
@@ -556,40 +557,55 @@ export class VoiceEngine {
     const enabled = settings.enabled;
     const character = resolveVoiceCharacter(settings);
     const pitchAbs = Math.abs(character.pitchSemitones);
-    const usePitch = enabled && this.workletReady && this.pitchNode && pitchAbs >= 0.55;
+    const usePitch = enabled && this.workletReady && this.pitchNode && pitchAbs >= 0.25;
     const ratio = usePitch ? Math.pow(2, character.pitchSemitones / 12) : 1;
 
     if (this.pitchNode) {
       this.pitchNode.port.postMessage({ ratio });
     }
 
-    // Crossfade dry/pitch — keep dry strong to reduce grainy pitch noise
+    // Stronger wet when pitch shift is large so gender/age/race are audible
     const t = this.ctx.currentTime;
     if (usePitch) {
-      this.pitchBypass.gain.setTargetAtTime(0.4, t, 0.05);
-      this.pitchWet!.gain.setTargetAtTime(0.7, t, 0.05);
+      const wet = pitchAbs >= 3 ? 0.92 : pitchAbs >= 1.5 ? 0.82 : 0.7;
+      this.pitchBypass.gain.setTargetAtTime(1 - wet * 0.85, t, 0.04);
+      this.pitchWet!.gain.setTargetAtTime(wet, t, 0.04);
     } else {
       this.pitchBypass.gain.setTargetAtTime(1, t, 0.05);
       if (this.pitchWet) this.pitchWet.gain.setTargetAtTime(0, t, 0.05);
     }
 
-    // Cap EQ boosts so highs don't hiss
-    const clampEq = (g: number) => Math.max(-6, Math.min(6, g));
     if (enabled) {
-      this.formantLow.gain.setTargetAtTime(clampEq(character.lowGain), t, 0.05);
-      this.formantMid.gain.setTargetAtTime(clampEq(character.midGain), t, 0.05);
-      this.formantHigh.gain.setTargetAtTime(clampEq(character.highGain * 0.75), t, 0.05);
-      this.formantMid.frequency.setTargetAtTime(character.midFreq, t, 0.05);
+      this.formantLow.gain.setTargetAtTime(character.lowGain, t, 0.04);
+      this.formantMid.gain.setTargetAtTime(character.midGain, t, 0.04);
+      this.formantHigh.gain.setTargetAtTime(character.highGain, t, 0.04);
+      this.formantMid.frequency.setTargetAtTime(character.midFreq, t, 0.04);
     } else {
       this.formantLow.gain.setTargetAtTime(0, t, 0.05);
       this.formantMid.gain.setTargetAtTime(0, t, 0.05);
       this.formantHigh.gain.setTargetAtTime(0, t, 0.05);
     }
 
-    // Soft amp: 0.85 at 0 → ~1.15 at 100 (less drive = less noise)
+    // Soft amp: 0.85 at 0 → ~1.15 at 100
     const amp = enabled ? 0.85 + (settings.amplifier / 100) * 0.3 : 1;
     this.ampGain.gain.setTargetAtTime(amp, t, 0.04);
     this.masterGain.gain.setTargetAtTime(settings.volume / 100, t, 0.04);
+
+    const charKey = `${settings.race}|${settings.gender}|${settings.age}|${character.pitchSemitones.toFixed(1)}`;
+    if (charKey !== this.lastCharacterLog) {
+      this.lastCharacterLog = charKey;
+      this.log('info', 'character applied', {
+        race: settings.race,
+        gender: settings.gender,
+        age: settings.age,
+        pitch: Number(character.pitchSemitones.toFixed(2)),
+        low: Number(character.lowGain.toFixed(2)),
+        mid: Number(character.midGain.toFixed(2)),
+        high: Number(character.highGain.toFixed(2)),
+        midFreq: character.midFreq,
+        usePitch,
+      });
+    }
 
     const mix = settings.effectMix / 100;
     const anyEffect = enabled && Object.values(settings.effects).some(Boolean);

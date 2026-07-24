@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VoiceEngine, type PrehearState } from './audio/VoiceEngine';
 import {
   DEFAULT_SETTINGS,
+  RACE_PRESETS,
+  migrateRace,
   type AgePreset,
   type EffectId,
   type GenderPreset,
@@ -19,7 +21,7 @@ interface DeviceOption {
   kind: MediaDeviceKind;
 }
 
-const RACES: RacePreset[] = ['neutral', 'bright', 'warm', 'deep', 'airy'];
+const RACES: RacePreset[] = [...RACE_PRESETS];
 const GENDERS: GenderPreset[] = ['neutral', 'feminine', 'masculine', 'androgynous'];
 const AGES: AgePreset[] = ['child', 'teen', 'young', 'adult', 'elder'];
 const FX_IDS: EffectId[] = [
@@ -43,6 +45,7 @@ function loadSettings(): VoiceSettings {
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      race: migrateRace(parsed.race ?? DEFAULT_SETTINGS.race),
       effects: { ...DEFAULT_SETTINGS.effects, ...(parsed.effects ?? {}) },
       // Force-safe default if user had monitor on from older builds
       monitorLocally: parsed.monitorLocally ?? false,
