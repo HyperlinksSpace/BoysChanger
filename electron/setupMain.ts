@@ -26,6 +26,8 @@ function sendProgress(phase: string, percent: number, detail?: string) {
 function payloadRoot(): string {
   const candidates = [
     path.join(process.resourcesPath, 'payload'),
+    path.join(__dirname, '../release/app-payload/win-unpacked'),
+    path.join(process.cwd(), 'release/app-payload/win-unpacked'),
     path.join(__dirname, '../release/win-unpacked'),
     path.join(process.cwd(), 'release/win-unpacked'),
   ];

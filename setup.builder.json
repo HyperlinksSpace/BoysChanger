@@ -16,8 +16,13 @@
   ],
   "extraResources": [
     {
-      "from": "release/win-unpacked",
-      "to": "payload"
+      "from": "release/app-payload/win-unpacked",
+      "to": "payload",
+      "filter": [
+        "**/*",
+        "!**/payload",
+        "!**/payload/**"
+      ]
     },
     {
       "from": "build/icon.png",
