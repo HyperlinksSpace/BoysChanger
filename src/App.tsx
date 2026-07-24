@@ -141,6 +141,10 @@ export default function App() {
     peaks: new Float32Array(160),
   });
   const [systemMsg, setSystemMsg] = useState('');
+  const [telegramGuideOpen, setTelegramGuideOpen] = useState(true);
+  const [cableInstallerReady, setCableInstallerReady] = useState(false);
+  const [cableOsInstalled, setCableOsInstalled] = useState(false);
+  const [cableInstallBusy, setCableInstallBusy] = useState(false);
 
   const tr = useCallback((key: MessageKey, vars?: Record<string, string | number>) => t(locale, key, vars), [locale]);
 
@@ -429,6 +433,113 @@ export default function App() {
     }
   };
 
+  const setupForTelegram = async () => {
+    if (!window.boysChanger) {
+      setStatus('statusNeedDesktop');
+      return;
+    }
+    setTelegramGuideOpen(true);
+    setBusy(true);
+    try {
+      await refreshDevices();
+      const list = await navigator.mediaDevices.enumerateDevices();
+      const outs = list
+        .filter((d) => d.kind === 'audiooutput')
+        .map((d) => ({ deviceId: d.deviceId, label: d.label || d.deviceId, kind: d.kind }));
+      const virtual = outs.find((d) => looksLikeVirtualOutput(d.label));
+      if (!virtual) {
+        setSystemMsg(tr('telegramCableMissing'));
+        setStatusKey('statusIdle');
+        return;
+      }
+
+      const next = { ...settings, outputDeviceId: virtual.deviceId, enabled: true };
+      setSettings(next);
+
+      const systemHint = platform === 'darwin' ? 'BlackHole' : 'CABLE Output';
+      setStatus('statusApplying');
+      const res = await window.boysChanger.setSystemInput(systemHint);
+
+      if (!engineOn) {
+        await startEngine(true, next);
+      } else {
+        engineRef.current.applySettings(next);
+        const sinkOk = await engineRef.current.applyOutputDevice(next.outputDeviceId);
+        if (!sinkOk) {
+          setSystemMsg(`${tr('sinkFailed')} — ${tr('telegramDoneTip')}`);
+          return;
+        }
+        setStatus('statusOn');
+      }
+
+      const tip = tr('telegramDoneTip');
+      setSystemMsg(res.ok ? `${res.message} — ${tip}` : `${res.message} — ${tip}`);
+      if (!res.ok) {
+        await window.boysChanger.openSoundInputSettings();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const refreshCableStatus = useCallback(async () => {
+    const st = await window.boysChanger?.virtualCableStatus();
+    if (!st) return;
+    setCableInstallerReady(Boolean(st.installerAvailable));
+    setCableOsInstalled(Boolean(st.installed));
+  }, []);
+
+  useEffect(() => {
+    void refreshCableStatus();
+  }, [refreshCableStatus]);
+
+  /** When a virtual cable appears, auto-select it as Output once. */
+  useEffect(() => {
+    if (settings.outputDeviceId) return;
+    const virtual = outputs.find((d) => looksLikeVirtualOutput(d.label));
+    if (!virtual) return;
+    setSettings((prev) =>
+      prev.outputDeviceId ? prev : { ...prev, outputDeviceId: virtual.deviceId },
+    );
+  }, [outputs, settings.outputDeviceId]);
+
+  const installVirtualCable = async () => {
+    if (!window.boysChanger) {
+      setStatus('statusNeedDesktop');
+      return;
+    }
+    if (platform === 'darwin') {
+      await window.boysChanger.openExternal('https://existential.audio/blackhole/');
+      return;
+    }
+    if (!cableInstallerReady) {
+      await window.boysChanger.openExternal('https://www.vb-cable.com/');
+      return;
+    }
+    setCableInstallBusy(true);
+    setSystemMsg(tr('cableInstallBusy'));
+    try {
+      const res = await window.boysChanger.installVirtualCable();
+      setSystemMsg(res.ok ? tr('cableInstallOk') : tr('cableInstallFail', { error: res.message }));
+      await refreshCableStatus();
+      await refreshDevices();
+    } finally {
+      setCableInstallBusy(false);
+    }
+  };
+  const cablePresent = useMemo(
+    () =>
+      cableOsInstalled ||
+      outputs.some((d) => looksLikeVirtualOutput(d.label)) ||
+      inputs.some((d) => /cable output|vb-audio virtual cable|blackhole/i.test(d.label)),
+    [cableOsInstalled, outputs, inputs],
+  );
+  const outputIsCable = useMemo(() => {
+    if (!settings.outputDeviceId) return false;
+    const label = outputs.find((d) => d.deviceId === settings.outputDeviceId)?.label || '';
+    return looksLikeVirtualOutput(label);
+  }, [outputs, settings.outputDeviceId]);
+
   const ensureEngineForSounds = useCallback(async () => {
     if (engineOn) return true;
     setBusy(true);
@@ -584,6 +695,9 @@ export default function App() {
           <button type="button" className="secondary" onClick={() => void refreshDevices()}>
             {tr('refreshDevices')}
           </button>
+          <button type="button" className="primary-action" disabled={busy} onClick={() => void setupForTelegram()}>
+            {tr('telegramSetupBtn')}
+          </button>
           <button type="button" className="secondary" onClick={() => void applySystemWide()}>
             {tr('applySystem')}
           </button>
@@ -610,6 +724,73 @@ export default function App() {
             {tr('monitorLocally')}
           </label>
         </div>
+      </section>
+
+      <section className="panel compact telegram-guide">
+        <div className="panel-head">
+          <h2>{tr('telegramTitle')}</h2>
+          <button
+            type="button"
+            className="secondary guide-toggle"
+            onClick={() => setTelegramGuideOpen((v) => !v)}
+          >
+            {telegramGuideOpen ? '−' : '+'}
+          </button>
+        </div>
+        {telegramGuideOpen ? (
+          <div className="telegram-body">
+            <p className="telegram-why">{tr('telegramWhy')}</p>
+            <ul className="telegram-checks">
+              <li className={cablePresent ? 'ok' : 'bad'}>
+                {cablePresent
+                  ? tr('telegramCableOk')
+                  : cableInstallerReady
+                    ? `${tr('telegramCableMissing')} (${tr('cableBundledOk')})`
+                    : tr('telegramCableMissing')}
+              </li>
+              <li className={outputIsCable ? 'ok' : 'bad'}>
+                {outputIsCable ? tr('telegramOutputOk') : tr('telegramOutputNeed')}
+              </li>
+              <li className={engineOn ? 'ok' : 'bad'}>
+                {engineOn ? tr('telegramEngineOk') : tr('telegramEngineNeed')}
+              </li>
+            </ul>
+            <ol className="telegram-steps">
+              <li>{tr('telegramStep1')}</li>
+              <li>{platform === 'darwin' ? tr('telegramStep2Mac') : tr('telegramStep2Win')}</li>
+              <li>{tr('telegramStep3')}</li>
+              <li>{platform === 'darwin' ? tr('telegramStep4Mac') : tr('telegramStep4Win')}</li>
+              <li>{tr('telegramStep5')}</li>
+            </ol>
+            <p className="telegram-note">
+              {platform === 'darwin' ? tr('telegramVoiceMsgMac') : tr('telegramVoiceMsgWin')}
+            </p>
+            <p className="telegram-note muted">{tr('telegramDesktopOnly')}</p>
+            <p className="telegram-note muted">{tr('cableDonate')}</p>
+            <div className="row actions">
+              <button type="button" className="primary-action" disabled={busy} onClick={() => void setupForTelegram()}>
+                {tr('telegramSetupBtn')}
+              </button>
+              {!cablePresent ? (
+                <button
+                  type="button"
+                  className="primary-action"
+                  disabled={busy || cableInstallBusy}
+                  onClick={() => void installVirtualCable()}
+                >
+                  {platform === 'darwin' ? tr('telegramInstallCableMac') : tr('telegramInstallCableWin')}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => void window.boysChanger?.openSoundInputSettings()}
+              >
+                {tr('telegramOpenSound')}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <div className="two-col">

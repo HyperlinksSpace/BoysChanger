@@ -21,7 +21,14 @@ Thumbs.db
 .vscode/
 *.swp
 
-# Electron
-*.exe
+# Electron artifacts
 *.dmg
 *.blockmap
+
+# Root/release installers (keep vendor fetch gitignored separately)
+/*.exe
+/release/
+
+# VB-CABLE download (fetched by npm run fetch:vbcable)
+vendor/vbcable/**
+!vendor/vbcable/README.md

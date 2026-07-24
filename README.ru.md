@@ -48,14 +48,14 @@
 
 ### Windows
 
-1. Установите [VB-Cable](https://vb-audio.com/Cable/) и перезагрузитесь
-2. Поставьте BoysChanger из [Releases](https://github.com/HyperlinksSpace/BoysChanger/releases)
+1. Поставьте BoysChanger из [Releases](https://github.com/HyperlinksSpace/BoysChanger/releases) — установщик **включает VB-CABLE** и может поставить драйвер при установке
+2. **Перезагрузитесь** после установки VB-CABLE
 3. **Вход** — ваш **настоящий** микрофон (не Voicemod / CABLE)
 4. **Выход** — **CABLE Input**
-5. Нажмите **Сделать системным входом** (или выберите **CABLE Output** как микрофон Windows)
+5. Нажмите **Настроить для Telegram** / **Сделать системным входом**
 6. Включите чейнджер (**ON**)
 
-Опционально: `Install-Module AudioDeviceCmdlets` — чтобы приложение само меняло системный микрофон.
+Если кабеля нет: панель Telegram → **Установить вирт. кабель**. VB-CABLE — donationware от [VB-Audio](https://www.vb-cable.com/).
 
 ### macOS
 
@@ -69,10 +69,16 @@
 
 ### Telegram / Discord
 
-1. Выход = **CABLE Input** (Win) / **BlackHole** (Mac)
-2. Системный вход = **CABLE Output** / BlackHole
-3. Чейнджер **ON**
-4. В Telegram/Discord выберите тот же микрофон и **перезайдите** в голосовой чат
+Telegram Desktop **сам** не подхватывает BoysChanger: у звонков свой микрофон, а голосовые часто идут с системного микрофона по умолчанию.
+
+1. Установите **VB-Cable** (Win) / **BlackHole** (Mac)
+2. BoysChanger: вход = реальный микрофон, выход = **CABLE Input** / **BlackHole**
+3. Нажмите **Настроить для Telegram** в приложении
+4. Telegram Desktop → **Настройки → Дополнительно → Настройки звонков → Устройство ввода** = **CABLE Output** / **BlackHole**
+5. **Выйдите и зайдите снова** в голосовой чат; держите BoysChanger **ON**
+6. Для голосовых: также сделайте CABLE Output / BlackHole устройством записи по умолчанию в ОС
+
+Мобильный Telegram виртуальный кабель не поддерживает.
 
 ### Логи для отладки
 

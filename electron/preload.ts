@@ -1,6 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 export type SystemInputResult = { ok: boolean; message: string };
+export type CableStatus = {
+  platform: NodeJS.Platform;
+  installed: boolean;
+  installerAvailable: boolean;
+  installerPath: string | null;
+  deviceHint: string;
+  message: string;
+};
+export type CableInstallResult = {
+  ok: boolean;
+  rebootRequired: boolean;
+  message: string;
+};
 export type UpdateStatusPayload = {
   status: 'checking' | 'available' | 'not-available' | 'downloaded' | 'error';
   version?: string;
@@ -13,8 +26,13 @@ const api = {
   getLocale: (): Promise<string> => ipcRenderer.invoke('get-locale'),
   ensureMicPermission: (): Promise<boolean> => ipcRenderer.invoke('ensure-mic-permission'),
   virtualCableHints: (): Promise<string[]> => ipcRenderer.invoke('virtual-cable-hints'),
+  virtualCableStatus: (): Promise<CableStatus> => ipcRenderer.invoke('virtual-cable-status'),
+  installVirtualCable: (): Promise<CableInstallResult> =>
+    ipcRenderer.invoke('install-virtual-cable'),
   setSystemInput: (deviceHint: string): Promise<SystemInputResult> =>
     ipcRenderer.invoke('set-system-input', deviceHint),
+  openSoundInputSettings: (): Promise<SystemInputResult> =>
+    ipcRenderer.invoke('open-sound-input-settings'),
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('open-external', url),
   checkForUpdates: (): Promise<{ ok: boolean; version?: string; message?: string }> =>
     ipcRenderer.invoke('check-for-updates'),

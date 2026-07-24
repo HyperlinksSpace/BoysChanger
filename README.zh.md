@@ -48,14 +48,14 @@
 
 ### Windows
 
-1. 安装 [VB-Cable](https://vb-audio.com/Cable/) 并重启
-2. 从 [Releases](https://github.com/HyperlinksSpace/BoysChanger/releases) 安装 BoysChanger
+1. 从 [Releases](https://github.com/HyperlinksSpace/BoysChanger/releases) 安装 BoysChanger — 安装包**内置 VB-CABLE**，安装时会尝试安装驱动
+2. 安装 VB-CABLE 后请**重启**
 3. **输入**选择真实硬件麦克风（不要选 Voicemod / CABLE）
 4. **输出**设为 **CABLE Input**
-5. 点击 **设为系统输入**（或将 Windows 默认录音设备设为 **CABLE Output**）
+5. 点击 **一键配置 Telegram** / **设为系统输入**
 6. 打开变声器（**ON**）
 
-可选：`Install-Module AudioDeviceCmdlets` 以便应用自动切换系统麦克风。
+若没有虚拟声卡：Telegram 面板 → **安装虚拟声卡**。VB-CABLE 为 [VB-Audio](https://www.vb-cable.com/) 捐赠软件。
 
 ### macOS
 
@@ -69,10 +69,16 @@
 
 ### Telegram / Discord 语音
 
-1. 输出 = **CABLE Input**（Win）/ **BlackHole**（Mac）
-2. 系统输入 = **CABLE Output** / BlackHole
-3. 变声器 **ON**
-4. 在 Telegram/Discord 中选择该麦克风，并**重新加入**语音通话
+Telegram 桌面版**不会**自动使用 BoysChanger，通话有独立麦克风选项；语音消息还经常用系统默认麦克风。
+
+1. 安装 **VB-Cable**（Win）/ **BlackHole**（Mac）
+2. BoysChanger：输入 = 真实麦克风，输出 = **CABLE Input** / **BlackHole**
+3. 点击应用内 **一键配置 Telegram**
+4. Telegram 桌面版 → **设置 → 高级 → 通话设置 → 输入设备** = **CABLE Output** / **BlackHole**
+5. **退出并重新加入**语音聊天；说话时保持 BoysChanger **ON**
+6. 语音消息：将系统默认录音设备也设为 CABLE Output / BlackHole
+
+手机端 Telegram 无法使用虚拟声卡。
 
 ### 调试日志
 

@@ -38,7 +38,7 @@ Shape race, gender, age, timbre, amplifier, and volume; stack echo, wah-wah, dis
 - **Effects**: all can be enabled at the same time, with a shared mix slider
 - **Prehear**: replay the last 11 seconds of processed voice
 - **Sound library**: built-in FX + upload your own MP3 (plays locally and into the virtual cable)
-- **System-wide routing**: output to VB-Cable (Windows) or BlackHole (macOS), then set it as the system input
+- **System-wide routing**: bundled **VB-CABLE** on Windows (install from the app or NSIS setup); **BlackHole** on macOS; then set it as the system / Telegram mic
 - **Languages**: English, 中文, Русский (follows system language on first launch)
 - **Auto-update**: checks GitHub Releases and installs updates automatically
 - **Auto-release**: every push to `main` builds installers and publishes a GitHub Release
@@ -48,14 +48,18 @@ Shape race, gender, age, timbre, amplifier, and volume; stack echo, wah-wah, dis
 
 ### Windows
 
-1. Install [VB-Cable](https://vb-audio.com/Cable/) and reboot
-2. Install BoysChanger from [Releases](https://github.com/HyperlinksSpace/BoysChanger/releases)
+1. Install BoysChanger from [Releases](https://github.com/HyperlinksSpace/BoysChanger/releases) — the installer **bundles VB-CABLE** (VB-Audio donationware) and can install it during setup
+2. **Reboot** after VB-CABLE install (required for the driver to appear)
 3. In the app, set **Input** to your **real hardware mic** (not Voicemod / CABLE)
-4. Set **Output** to **CABLE Input**
-5. Click **Apply as system input** (or set Windows default recording device to **CABLE Output**)
+4. Set **Output** to **CABLE Input** (auto-selected when the cable is found)
+5. Click **Setup for Telegram** / **Apply as system input**
 6. Turn the changer **ON**
 
-Optional: `Install-Module AudioDeviceCmdlets` enables automatic default-mic switching from the app.
+If the cable is missing: open the Telegram setup panel → **Install virtual cable** (runs the bundled installer; accept the Windows driver prompt).
+
+VB-CABLE is by [VB-Audio](https://www.vb-cable.com/) (donationware — donations welcome).
+
+Optional: `Install-Module AudioDeviceCmdlets` is no longer required; BoysChanger can set the default mic without it.
 
 ### macOS
 
@@ -69,10 +73,18 @@ Optional: `brew install switchaudio-osx` for automatic input switching.
 
 ### Telegram / Discord voice chat
 
-1. Output = **CABLE Input** (Win) / **BlackHole** (Mac)
-2. Click **Apply as system input** (or set OS default mic to **CABLE Output** / BlackHole)
-3. Turn changer **ON**
-4. In Telegram/Discord: set **Microphone** to **CABLE Output** / BlackHole, then **rejoin** the voice chat (apps often lock the mic at call start)
+Telegram Desktop **does not** automatically use BoysChanger. It has its own Call microphone setting, and voice messages often use the **Windows/macOS default** mic.
+
+1. Install **VB-Cable** via BoysChanger (**Install virtual cable** / Windows installer) or **BlackHole** (Mac)
+2. BoysChanger: **Input** = real mic, **Output** = **CABLE Input** / **BlackHole**
+3. Click **Setup for Telegram** in the app (or **Apply as system input**)
+4. Telegram Desktop → **Settings → Advanced → Call settings → Input device** = **CABLE Output** / **BlackHole**
+5. **Leave and rejoin** the voice chat (Telegram locks the mic at call start)
+6. Keep BoysChanger **ON** while talking
+
+For **voice messages** on Windows: also set the default Recording device to **CABLE Output** (Sound settings → Recording).
+
+Mobile Telegram cannot use a virtual cable.
 
 Sound-library clips and prehear playback go to **both** your speakers and the virtual cable, so the other side hears them too.
 

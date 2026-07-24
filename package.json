@@ -13,14 +13,15 @@
   "scripts": {
     "dev": "vite",
     "icons": "node scripts/build-icons.js",
-    "prebuild": "node scripts/build-icons.js",
+    "fetch:vbcable": "node scripts/fetch-vbcable.js",
+    "prebuild": "node scripts/build-icons.js && node scripts/fetch-vbcable.js",
     "build": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json --noEmit && vite build && electron-builder --publish never",
     "build:dir": "vite build && electron-builder --dir --publish never",
     "preview": "vite preview",
     "electron:dev": "vite",
-    "pack:win": "npm run icons && vite build && electron-builder --win --publish never",
+    "pack:win": "npm run icons && npm run fetch:vbcable && vite build && electron-builder --win --publish never",
     "pack:mac": "npm run icons && vite build && electron-builder --mac --publish never",
-    "pack:all": "npm run icons && vite build && electron-builder --win --mac --publish never"
+    "pack:all": "npm run icons && npm run fetch:vbcable && vite build && electron-builder --win --mac --publish never"
   },
   "build": {
     "appId": "com.hyperlinksspace.boyschanger",
@@ -59,6 +60,15 @@
       {
         "from": "build/icon-status-off.png",
         "to": "icon-status-off.png"
+      },
+      {
+        "from": "electron/scripts",
+        "to": "scripts"
+      },
+      {
+        "from": "vendor/vbcable",
+        "to": "vbcable",
+        "filter": ["**/*", "!**/*.zip", "!README.md"]
       }
     ],
     "publish": [
@@ -113,7 +123,10 @@
       "shortcutName": "BoysChanger",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
-      "installerHeaderIcon": "build/icon.ico"
+      "installerHeaderIcon": "build/icon.ico",
+      "include": "build/installer.nsh",
+      "perMachine": true,
+      "allowElevation": true
     }
   },
   "dependencies": {

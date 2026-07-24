@@ -26,10 +26,48 @@ const en = {
   hintMac:
     'Install BlackHole 2ch. Set Output to BlackHole, then apply system input. In Telegram, pick BlackHole as the microphone.',
   hintWin:
-    'Install VB-Cable. Set Output to CABLE Input, then apply system input (CABLE Output). In Telegram, pick CABLE Output as the microphone.',
+    'Windows: use Install virtual cable (bundled VB-CABLE), set Output to CABLE Input, then Setup for Telegram. In Telegram pick CABLE Output.',
   chatMicTip:
-    'In Telegram/Discord voice chat, set Microphone to CABLE Output (Windows) or BlackHole (macOS), then rejoin the call',
+    'Telegram keeps its own mic — open Settings → Advanced → Call settings → Microphone = CABLE Output (Win) / BlackHole (Mac), then rejoin the call',
   sinkFailed: 'Could not route to virtual cable — pick CABLE Input / BlackHole as Output',
+  telegramTitle: 'Telegram setup',
+  telegramWhy:
+    'Telegram Desktop does not follow BoysChanger by itself. It uses its own Call microphone (and voice messages often use the Windows default mic). You must point both at the virtual cable.',
+  telegramStep1: '1. Install the built-in virtual cable (Windows: Install virtual cable) or BlackHole 2ch (macOS), then reboot if asked.',
+  telegramStep2Win: '2. In BoysChanger: Input = your real mic · Output = CABLE Input (not speakers).',
+  telegramStep2Mac: '2. In BoysChanger: Input = your real mic · Output = BlackHole 2ch.',
+  telegramStep3: '3. Click “Setup for Telegram” (starts the engine and sets the system default mic to the cable).',
+  telegramStep4Win:
+    '4. Telegram Desktop → Settings → Advanced → Call settings → Input device = CABLE Output (VB-Audio Virtual Cable).',
+  telegramStep4Mac:
+    '4. Telegram Desktop → Settings → Advanced → Call settings → Input device = BlackHole 2ch.',
+  telegramStep5:
+    '5. Leave / rejoin the voice chat (Telegram locks the mic when the call starts). Keep BoysChanger ON while you talk.',
+  telegramVoiceMsgWin:
+    'Voice messages: also set Windows default Recording device to CABLE Output (Telegram often ignores Call settings for voice notes).',
+  telegramVoiceMsgMac:
+    'Voice messages: also set macOS System Settings → Sound → Input to BlackHole.',
+  telegramDesktopOnly: 'Works on Telegram Desktop only — mobile Telegram cannot use a virtual cable.',
+  telegramSetupBtn: 'Setup for Telegram',
+  telegramOpenSound: 'Open OS mic settings',
+  telegramInstallCableWin: 'Install virtual cable',
+  telegramInstallCableMac: 'Get BlackHole',
+  telegramCableMissing:
+    'No virtual cable found. On Windows click Install virtual cable (bundled VB-CABLE), reboot, then Refresh devices.',
+  telegramCableOk: 'Virtual cable detected',
+  telegramOutputOk: 'Output is set to the virtual cable',
+  telegramOutputNeed: 'Set Output to CABLE Input / BlackHole',
+  telegramEngineOk: 'Engine running',
+  telegramEngineNeed: 'Engine not running — use Setup for Telegram',
+  telegramDoneTip: 'Now set Telegram’s Call microphone to the cable and rejoin the chat.',
+  cableInstallBusy: 'Installing VB-CABLE (accept the Windows driver prompt)…',
+  cableInstallOk: 'VB-CABLE installed. Reboot Windows, then reopen BoysChanger and click Setup for Telegram.',
+  cableInstallFail: 'Cable install failed: {error}',
+  cableDonate:
+    'Virtual cable by VB-Audio (donationware) — https://www.vb-cable.com — donations welcome if you find it useful.',
+  cableBundledOk: 'Bundled VB-CABLE installer ready',
+  cableStatusInstalled: 'Virtual cable installed',
+  cableStatusMissing: 'Virtual cable not installed yet',
   inputMic: 'Input (your mic)',
   outputCable: 'Output (virtual cable)',
   systemDefault: 'System default',
@@ -134,10 +172,47 @@ const zh: Record<MessageKey, string> = {
   hintMac:
     '请安装 BlackHole 2ch。将输出设为 BlackHole，然后应用系统输入。在 Telegram 中选择 BlackHole 作为麦克风。',
   hintWin:
-    '请安装 VB-Cable。将输出设为 CABLE Input，然后应用系统输入（CABLE Output）。在 Telegram 中选择 CABLE Output 作为麦克风。',
+    'Windows：点「安装虚拟声卡」（内置 VB-CABLE），将输出设为 CABLE Input，再一键配置 Telegram。在 Telegram 中选择 CABLE Output。',
   chatMicTip:
-    '在 Telegram/Discord 语音中，将麦克风设为 CABLE Output（Windows）或 BlackHole（macOS），然后重新加入通话',
+    'Telegram 会使用自己的麦克风，不会自动跟系统走。请打开 设置 → 高级 → 通话设置 → 麦克风 = CABLE Output（Win）/ BlackHole（Mac），然后重新加入通话',
   sinkFailed: '无法路由到虚拟声卡 — 请将输出选为 CABLE Input / BlackHole',
+  telegramTitle: 'Telegram 设置',
+  telegramWhy:
+    'Telegram 桌面版不会自动使用 BoysChanger。通话麦克风是独立选项（语音消息还经常用系统默认麦克风）。必须把两者都指到虚拟声卡。',
+  telegramStep1: '1. 安装内置虚拟声卡（Windows：点「安装虚拟声卡」）或 BlackHole 2ch（macOS），如提示请重启。',
+  telegramStep2Win: '2. 在 BoysChanger：输入 = 真实麦克风 · 输出 = CABLE Input（不要选扬声器）。',
+  telegramStep2Mac: '2. 在 BoysChanger：输入 = 真实麦克风 · 输出 = BlackHole 2ch。',
+  telegramStep3: '3. 点击「一键配置 Telegram」（启动引擎并把系统默认麦克风设为虚拟声卡）。',
+  telegramStep4Win:
+    '4. Telegram 桌面版 → 设置 → 高级 → 通话设置 → 输入设备 = CABLE Output（VB-Audio Virtual Cable）。',
+  telegramStep4Mac:
+    '4. Telegram 桌面版 → 设置 → 高级 → 通话设置 → 输入设备 = BlackHole 2ch。',
+  telegramStep5:
+    '5. 退出并重新加入语音聊天（Telegram 在通话开始时锁定麦克风）。说话时保持 BoysChanger 为 ON。',
+  telegramVoiceMsgWin:
+    '语音消息：还要把 Windows 默认录音设备设为 CABLE Output（语音消息常忽略通话设置）。',
+  telegramVoiceMsgMac:
+    '语音消息：还要把 macOS 系统设置 → 声音 → 输入 设为 BlackHole。',
+  telegramDesktopOnly: '仅支持 Telegram 桌面版 — 手机端无法使用虚拟声卡。',
+  telegramSetupBtn: '一键配置 Telegram',
+  telegramOpenSound: '打开系统麦克风设置',
+  telegramInstallCableWin: '安装虚拟声卡',
+  telegramInstallCableMac: '下载 BlackHole',
+  telegramCableMissing: '未检测到虚拟声卡。Windows 请点「安装虚拟声卡」（内置 VB-CABLE），重启后点刷新设备。',
+  telegramCableOk: '已检测到虚拟声卡',
+  telegramOutputOk: '输出已设为虚拟声卡',
+  telegramOutputNeed: '请将输出设为 CABLE Input / BlackHole',
+  telegramEngineOk: '引擎运行中',
+  telegramEngineNeed: '引擎未运行 — 请点一键配置 Telegram',
+  telegramDoneTip: '现在把 Telegram 通话麦克风设为虚拟声卡，并重新加入聊天。',
+  cableInstallBusy: '正在安装 VB-CABLE（请允许 Windows 驱动提示）…',
+  cableInstallOk: 'VB-CABLE 已安装。请重启 Windows，然后重新打开 BoysChanger。',
+  cableInstallFail: '声卡安装失败：{error}',
+  cableDonate:
+    '虚拟声卡由 VB-Audio 提供（捐赠软件）— https://www.vb-cable.com — 觉得有用欢迎捐赠。',
+  cableBundledOk: '已就绪内置 VB-CABLE 安装包',
+  cableStatusInstalled: '虚拟声卡已安装',
+  cableStatusMissing: '尚未安装虚拟声卡',
   inputMic: '输入（麦克风）',
   outputCable: '输出（虚拟声卡）',
   systemDefault: '系统默认',
@@ -240,10 +315,48 @@ const ru: Record<MessageKey, string> = {
   hintMac:
     'Установите BlackHole 2ch. Выход — BlackHole, затем системный вход. В Telegram выберите BlackHole как микрофон.',
   hintWin:
-    'Установите VB-Cable. Выход — CABLE Input, затем системный вход (CABLE Output). В Telegram выберите CABLE Output как микрофон.',
+    'Windows: нажмите «Установить вирт. кабель» (встроенный VB-CABLE), выход — CABLE Input, затем «Настроить для Telegram». В Telegram выберите CABLE Output.',
   chatMicTip:
-    'В голосовом чате Telegram/Discord выберите микрофон CABLE Output (Windows) или BlackHole (macOS), затем перезайдите в звонок',
+    'Telegram использует свой микрофон. Откройте Настройки → Дополнительно → Настройки звонков → Микрофон = CABLE Output (Win) / BlackHole (Mac), затем перезайдите в чат',
   sinkFailed: 'Не удалось направить на виртуальный кабель — выберите CABLE Input / BlackHole как Output',
+  telegramTitle: 'Настройка Telegram',
+  telegramWhy:
+    'Telegram Desktop сам по себе не берёт звук из BoysChanger. У него свой микрофон для звонков (а голосовые часто идут с системного микрофона по умолчанию). Оба нужно направить на виртуальный кабель.',
+  telegramStep1: '1. Установите встроенный виртуальный кабель (Windows: «Установить вирт. кабель») или BlackHole 2ch (macOS) и перезагрузитесь при необходимости.',
+  telegramStep2Win: '2. В BoysChanger: Вход = ваш реальный микрофон · Выход = CABLE Input (не динамики).',
+  telegramStep2Mac: '2. В BoysChanger: Вход = ваш реальный микрофон · Выход = BlackHole 2ch.',
+  telegramStep3: '3. Нажмите «Настроить для Telegram» (запустит движок и назначит системный микрофон на кабель).',
+  telegramStep4Win:
+    '4. Telegram Desktop → Настройки → Дополнительно → Настройки звонков → Устройство ввода = CABLE Output (VB-Audio Virtual Cable).',
+  telegramStep4Mac:
+    '4. Telegram Desktop → Настройки → Дополнительно → Настройки звонков → Устройство ввода = BlackHole 2ch.',
+  telegramStep5:
+    '5. Выйдите и снова зайдите в голосовой чат (Telegram фиксирует микрофон в начале звонка). Держите BoysChanger включённым (ON).',
+  telegramVoiceMsgWin:
+    'Голосовые сообщения: также сделайте CABLE Output устройством записи по умолчанию в Windows (голосовые часто игнорируют настройки звонка).',
+  telegramVoiceMsgMac:
+    'Голосовые сообщения: также выберите BlackHole в Системные настройки → Звук → Вход.',
+  telegramDesktopOnly: 'Работает только в Telegram Desktop — мобильный Telegram виртуальный кабель не поддерживает.',
+  telegramSetupBtn: 'Настроить для Telegram',
+  telegramOpenSound: 'Открыть настройки микрофона ОС',
+  telegramInstallCableWin: 'Установить вирт. кабель',
+  telegramInstallCableMac: 'Скачать BlackHole',
+  telegramCableMissing:
+    'Виртуальный кабель не найден. В Windows нажмите «Установить вирт. кабель» (встроенный VB-CABLE), перезагрузитесь и обновите устройства.',
+  telegramCableOk: 'Виртуальный кабель найден',
+  telegramOutputOk: 'Выход направлен на виртуальный кабель',
+  telegramOutputNeed: 'Выберите Output = CABLE Input / BlackHole',
+  telegramEngineOk: 'Движок запущен',
+  telegramEngineNeed: 'Движок не запущен — нажмите «Настроить для Telegram»',
+  telegramDoneTip: 'Теперь в Telegram выберите микрофон на кабель и перезайдите в чат.',
+  cableInstallBusy: 'Установка VB-CABLE (подтвердите запрос драйвера Windows)…',
+  cableInstallOk: 'VB-CABLE установлен. Перезагрузите Windows и снова откройте BoysChanger.',
+  cableInstallFail: 'Не удалось установить кабель: {error}',
+  cableDonate:
+    'Виртуальный кабель от VB-Audio (donationware) — https://www.vb-cable.com — пожертвования приветствуются.',
+  cableBundledOk: 'Встроенный установщик VB-CABLE готов',
+  cableStatusInstalled: 'Виртуальный кабель установлен',
+  cableStatusMissing: 'Виртуальный кабель ещё не установлен',
   inputMic: 'Вход (микрофон)',
   outputCable: 'Выход (виртуальный кабель)',
   systemDefault: 'Системный по умолчанию',

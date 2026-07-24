@@ -13,6 +13,10 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { autoUpdater } from 'electron-updater';
 import {
+  getVirtualCableStatus,
+  installBundledVirtualCable,
+} from './virtualCable';
+import {
   getLogPaths,
   getPrimaryLogPath,
   initLogger,
@@ -435,37 +439,51 @@ async function ensureMicPermission(): Promise<boolean> {
   return true;
 }
 
+async function resolveScriptPath(name: string): Promise<string | null> {
+  const candidates = [
+    path.join(process.resourcesPath, 'scripts', name),
+    path.join(__dirname, '../electron/scripts', name),
+    path.join(__dirname, 'scripts', name),
+    path.join(app.getAppPath(), 'electron/scripts', name),
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
 async function setSystemInputDevice(deviceHint: string): Promise<{ ok: boolean; message: string }> {
-  const hint = deviceHint.toLowerCase();
+  const hint = deviceHint || 'CABLE Output';
 
   if (process.platform === 'win32') {
-    const script = `
-$ErrorActionPreference = 'Stop'
-try {
-  Import-Module AudioDeviceCmdlets -ErrorAction Stop
-  $dev = Get-AudioDevice -List | Where-Object { $_.Type -eq 'Recording' -and ($_.Name -match '${deviceHint.replace(/'/g, "''")}' -or $_.Name -match 'CABLE|VoiceMeeter|VB-Audio') } | Select-Object -First 1
-  if (-not $dev) { throw 'Virtual cable recording device not found. Install VB-Cable and select CABLE Output.' }
-  Set-AudioDevice -ID $dev.ID | Out-Null
-  Write-Output ("OK:" + $dev.Name)
-} catch {
-  Write-Output ("ERR:" + $_.Exception.Message)
-}
-`;
+    const scriptPath = await resolveScriptPath('set-default-recording.ps1');
+    if (!scriptPath) {
+      return {
+        ok: false,
+        message:
+          'Missing set-default-recording.ps1. Set Windows default mic to CABLE Output manually (Sound settings → Recording).',
+      };
+    }
     try {
       const { stdout } = await execFileAsync(
         'powershell.exe',
-        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
-        { windowsHide: true, timeout: 15000 },
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, hint],
+        { windowsHide: true, timeout: 25000 },
       );
-      const out = stdout.trim();
+      const out = stdout.trim().split(/\r?\n/).filter(Boolean).pop() || '';
       if (out.startsWith('OK:')) {
+        logInfo('audio', 'system input set', { device: out.slice(3) });
         return { ok: true, message: `System input set to ${out.slice(3)}` };
       }
       return {
         ok: false,
         message:
           out.replace(/^ERR:/, '') ||
-          'Could not set system input. Install VB-Cable, then optionally AudioDeviceCmdlets.',
+          'Could not set system input. Install VB-Cable, then set default recording device to CABLE Output.',
       };
     } catch (e) {
       return {
@@ -480,7 +498,7 @@ try {
       const { stdout: list } = await execFileAsync('SwitchAudioSource', ['-a', '-t', 'input']);
       const lines = list.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
       const match =
-        lines.find((l) => l.toLowerCase().includes(hint)) ||
+        lines.find((l) => l.toLowerCase().includes(hint.toLowerCase())) ||
         lines.find((l) => /blackhole|vb-cable|cable/i.test(l));
       if (!match) {
         return {
@@ -501,6 +519,25 @@ try {
   }
 
   return { ok: false, message: 'System input switching is supported on Windows and macOS only.' };
+}
+
+async function openSoundInputSettings(): Promise<{ ok: boolean; message: string }> {
+  try {
+    if (process.platform === 'win32') {
+      // Classic Recording tab — easiest place to set CABLE Output as Default Device
+      await execFileAsync('control.exe', ['mmsys.cpl,,1'], { windowsHide: true });
+      return { ok: true, message: 'Opened Windows Recording devices' };
+    }
+    if (process.platform === 'darwin') {
+      await shell.openExternal(
+        'x-apple.systempreferences:com.apple.preference.sound?input',
+      );
+      return { ok: true, message: 'Opened macOS Sound settings' };
+    }
+    return { ok: false, message: 'Unsupported platform' };
+  } catch (e) {
+    return { ok: false, message: String(e) };
+  }
 }
 
 function detectVirtualCableHints(): string[] {
@@ -536,6 +573,14 @@ ipcMain.handle('virtual-cable-hints', () => detectVirtualCableHints());
 ipcMain.handle('set-system-input', async (_evt, deviceHint: string) =>
   setSystemInputDevice(deviceHint || (detectVirtualCableHints()[0] ?? '')),
 );
+ipcMain.handle('open-sound-input-settings', async () => openSoundInputSettings());
+ipcMain.handle('virtual-cable-status', async () => getVirtualCableStatus());
+ipcMain.handle('install-virtual-cable', async () => {
+  logInfo('audio', 'install virtual cable requested');
+  const res = await installBundledVirtualCable();
+  logInfo('audio', 'install virtual cable result', res);
+  return res;
+});
 ipcMain.handle('open-external', async (_evt, url: string) => {
   await shell.openExternal(url);
 });
