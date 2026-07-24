@@ -37,8 +37,8 @@ export const DEFAULT_SETTINGS: VoiceSettings = {
   gender: 'neutral',
   age: 'adult',
   timbre: 50,
-  amplifier: 20,
-  volume: 85,
+  amplifier: 15,
+  volume: 80,
   effects: {
     echo: false,
     wahwah: false,

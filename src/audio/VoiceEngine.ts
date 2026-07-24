@@ -26,6 +26,10 @@ export class VoiceEngine {
   private stream: MediaStream | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private highpass: BiquadFilterNode | null = null;
+  private lowpass: BiquadFilterNode | null = null;
+  private noiseGate: GainNode | null = null;
+  private inputTrim: GainNode | null = null;
+  private limiter: DynamicsCompressorNode | null = null;
   private ampGain: GainNode | null = null;
   private pitchBypass: GainNode | null = null;
   private pitchWet: GainNode | null = null;
@@ -156,14 +160,14 @@ export class VoiceEngine {
     this.workletReady = await loadPitchWorklet(this.ctx);
 
     const wantsMonitor = settings.monitorLocally;
-    // Always disable browser DSP — it fights voice changers and soft mics (Voicemod).
+    // Mild browser noise suppression helps USB mics (C-Media); keep AGC/echo off for changer quality.
     const audioConstraints: MediaTrackConstraints = {
       deviceId:
         settings.inputDeviceId && settings.inputDeviceId !== 'default'
           ? { exact: settings.inputDeviceId }
           : undefined,
       echoCancellation: false,
-      noiseSuppression: false,
+      noiseSuppression: true,
       autoGainControl: false,
       channelCount: 1,
     };
@@ -177,7 +181,7 @@ export class VoiceEngine {
       try {
         await track.applyConstraints({
           echoCancellation: false,
-          noiseSuppression: false,
+          noiseSuppression: true,
           autoGainControl: false,
         });
       } catch {
@@ -199,10 +203,21 @@ export class VoiceEngine {
     }
     this.source = this.ctx.createMediaStreamSource(this.stream);
 
+    // Cut rumble + hiss; soft gate kills room noise between words.
     this.highpass = this.ctx.createBiquadFilter();
     this.highpass.type = 'highpass';
-    this.highpass.frequency.value = 70;
+    this.highpass.frequency.value = 95;
     this.highpass.Q.value = 0.7;
+
+    this.lowpass = this.ctx.createBiquadFilter();
+    this.lowpass.type = 'lowpass';
+    this.lowpass.frequency.value = 9000;
+    this.lowpass.Q.value = 0.7;
+
+    this.noiseGate = this.ctx.createGain();
+    this.noiseGate.gain.value = 0;
+    this.inputTrim = this.ctx.createGain();
+    this.inputTrim.gain.value = 0.85; // headroom vs hot USB mics
 
     this.ampGain = this.ctx.createGain();
     this.pitchBypass = this.ctx.createGain();
@@ -218,11 +233,19 @@ export class VoiceEngine {
     this.monitorGain.gain.value = 0;
 
     this.compressor = this.ctx.createDynamicsCompressor();
-    this.compressor.threshold.value = -18;
-    this.compressor.knee.value = 18;
-    this.compressor.ratio.value = 2.5;
-    this.compressor.attack.value = 0.008;
-    this.compressor.release.value = 0.15;
+    this.compressor.threshold.value = -22;
+    this.compressor.knee.value = 20;
+    this.compressor.ratio.value = 3;
+    this.compressor.attack.value = 0.01;
+    this.compressor.release.value = 0.2;
+
+    // Soft peak limiter — stops harsh clip noise on loud peaks
+    this.limiter = this.ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -6;
+    this.limiter.knee.value = 4;
+    this.limiter.ratio.value = 12;
+    this.limiter.attack.value = 0.002;
+    this.limiter.release.value = 0.12;
 
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 2048;
@@ -245,8 +268,10 @@ export class VoiceEngine {
     this.formantHigh.frequency.value = 3200;
     this.formantHigh.gain.value = 0;
 
-    // Mic → HPF → amp → (dry|pitch) → formants → compressor → effects → master
-    this.source.connect(this.highpass);
+    // Mic → gate → trim → HPF → amp → (dry|pitch) → formants → LPF → comp → FX → limiter → master
+    this.source.connect(this.noiseGate);
+    this.noiseGate.connect(this.inputTrim);
+    this.inputTrim.connect(this.highpass);
     this.highpass.connect(this.ampGain);
 
     // Raw mic tap (diagnostics + prove whether silence is device vs graph)
@@ -272,11 +297,13 @@ export class VoiceEngine {
 
     this.formantLow.connect(this.formantMid);
     this.formantMid.connect(this.formantHigh);
-    this.formantHigh.connect(this.compressor);
+    this.formantHigh.connect(this.lowpass);
+    this.lowpass.connect(this.compressor);
     this.compressor.connect(this.effectsInput);
 
     this.effectsInput.connect(this.effectsDry);
-    this.effectsDry.connect(this.masterGain);
+    this.effectsDry.connect(this.limiter);
+    this.limiter.connect(this.masterGain);
 
     this.buildEffectsChain();
 
@@ -347,7 +374,9 @@ export class VoiceEngine {
     const mixBus = this.ctx.createGain();
     mixBus.gain.value = 0;
     this.effectsWet = mixBus;
-    mixBus.connect(this.masterGain);
+    // Wet FX also go through the peak limiter
+    if (this.limiter) mixBus.connect(this.limiter);
+    else mixBus.connect(this.masterGain);
 
     const makeEnable = () => {
       const g = this.ctx!.createGain();
@@ -527,27 +556,29 @@ export class VoiceEngine {
     const enabled = settings.enabled;
     const character = resolveVoiceCharacter(settings);
     const pitchAbs = Math.abs(character.pitchSemitones);
-    const usePitch = enabled && this.workletReady && this.pitchNode && pitchAbs >= 0.35;
+    const usePitch = enabled && this.workletReady && this.pitchNode && pitchAbs >= 0.55;
     const ratio = usePitch ? Math.pow(2, character.pitchSemitones / 12) : 1;
 
     if (this.pitchNode) {
       this.pitchNode.port.postMessage({ ratio });
     }
 
-    // Crossfade dry/pitch — dry stays dominant for clarity
+    // Crossfade dry/pitch — keep dry strong to reduce grainy pitch noise
     const t = this.ctx.currentTime;
     if (usePitch) {
-      this.pitchBypass.gain.setTargetAtTime(0.15, t, 0.05);
-      this.pitchWet!.gain.setTargetAtTime(0.9, t, 0.05);
+      this.pitchBypass.gain.setTargetAtTime(0.4, t, 0.05);
+      this.pitchWet!.gain.setTargetAtTime(0.7, t, 0.05);
     } else {
       this.pitchBypass.gain.setTargetAtTime(1, t, 0.05);
       if (this.pitchWet) this.pitchWet.gain.setTargetAtTime(0, t, 0.05);
     }
 
+    // Cap EQ boosts so highs don't hiss
+    const clampEq = (g: number) => Math.max(-6, Math.min(6, g));
     if (enabled) {
-      this.formantLow.gain.setTargetAtTime(character.lowGain, t, 0.05);
-      this.formantMid.gain.setTargetAtTime(character.midGain, t, 0.05);
-      this.formantHigh.gain.setTargetAtTime(character.highGain, t, 0.05);
+      this.formantLow.gain.setTargetAtTime(clampEq(character.lowGain), t, 0.05);
+      this.formantMid.gain.setTargetAtTime(clampEq(character.midGain), t, 0.05);
+      this.formantHigh.gain.setTargetAtTime(clampEq(character.highGain * 0.75), t, 0.05);
       this.formantMid.frequency.setTargetAtTime(character.midFreq, t, 0.05);
     } else {
       this.formantLow.gain.setTargetAtTime(0, t, 0.05);
@@ -555,8 +586,8 @@ export class VoiceEngine {
       this.formantHigh.gain.setTargetAtTime(0, t, 0.05);
     }
 
-    // Soft amp: 1.0 at 0 → ~1.35 at 100 (no harsh drive)
-    const amp = enabled ? 0.95 + (settings.amplifier / 100) * 0.4 : 1;
+    // Soft amp: 0.85 at 0 → ~1.15 at 100 (less drive = less noise)
+    const amp = enabled ? 0.85 + (settings.amplifier / 100) * 0.3 : 1;
     this.ampGain.gain.setTargetAtTime(amp, t, 0.04);
     this.masterGain.gain.setTargetAtTime(settings.volume / 100, t, 0.04);
 
@@ -883,6 +914,7 @@ export class VoiceEngine {
       this.levelListeners.forEach((cb) => cb(rms));
 
       let rawRms = 0;
+      let rawPeak = 0;
       if (this.rawAnalyser && this.rawTimeData) {
         (this.rawAnalyser as unknown as { getFloatTimeDomainData(a: Float32Array): void }).getFloatTimeDomainData(
           this.rawTimeData,
@@ -891,8 +923,21 @@ export class VoiceEngine {
         for (let i = 0; i < this.rawTimeData.length; i++) {
           const v = this.rawTimeData[i];
           rsum += v * v;
+          const a = Math.abs(v);
+          if (a > rawPeak) rawPeak = a;
         }
         rawRms = Math.sqrt(rsum / this.rawTimeData.length);
+      }
+
+      // Soft noise gate — close on room hiss, open on speech
+      if (this.noiseGate && this.ctx) {
+        const open = rawRms > 0.018 ? 1 : rawRms > 0.008 ? (rawRms - 0.008) / 0.01 : 0.02;
+        this.noiseGate.gain.setTargetAtTime(open, this.ctx.currentTime, 0.04);
+      }
+      // Auto input trim when mic is clipping hot
+      if (this.inputTrim && this.ctx) {
+        const target = rawPeak > 0.85 ? 0.55 : rawPeak > 0.65 ? 0.7 : 0.85;
+        this.inputTrim.gain.setTargetAtTime(target, this.ctx.currentTime, 0.08);
       }
 
       if (rms < 0.0008 && rawRms < 0.0008) {
@@ -930,10 +975,12 @@ export class VoiceEngine {
         this.log('info', 'engine heartbeat', {
           rms: Number(rms.toFixed(5)),
           rawRms: Number(rawRms.toFixed(5)),
+          rawPeak: Number(rawPeak.toFixed(3)),
           prehearSec: Number(this.ring.availableSeconds.toFixed(2)),
           captureMode: this.captureMode,
           ctx: this.ctx.state,
           sinkOk: this.lastSinkOk,
+          gate: Number((this.noiseGate?.gain.value ?? 0).toFixed(3)),
         });
       }
 
@@ -984,6 +1031,10 @@ export class VoiceEngine {
     this.rawAnalyser = null;
     this.rawTimeData = null;
     this.silenceFrames = 0;
+    this.noiseGate = null;
+    this.inputTrim = null;
+    this.lowpass = null;
+    this.limiter = null;
     this.libraryGain = null;
     this.libraryLocalGain = null;
     this.prehearTimeData = null;
