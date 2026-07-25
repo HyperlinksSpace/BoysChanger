@@ -26,7 +26,7 @@ import {
 import { LOCALES, detectLocale, t, type Locale, type MessageKey } from './i18n';
 import './styles.css';
 
-type AppTab = 'voices' | 'sounds' | 'studio' | 'settings';
+type AppTab = 'main' | 'voices' | 'sounds' | 'studio' | 'settings';
 
 interface DeviceOption {
   deviceId: string;
@@ -161,7 +161,7 @@ export default function App() {
   const [cableInstallerReady, setCableInstallerReady] = useState(false);
   const [cableOsInstalled, setCableOsInstalled] = useState(false);
   const [cableInstallBusy, setCableInstallBusy] = useState(false);
-  const [tab, setTab] = useState<AppTab>('voices');
+  const [tab, setTab] = useState<AppTab>('main');
   const [voicePresets, setVoicePresets] = useState<VoicePreset[]>([]);
   const [activePresetId, setActivePresetId] = useState<string | null>('builtin-clean');
   const [saveName, setSaveName] = useState('');
@@ -838,6 +838,7 @@ export default function App() {
         </div>
         {(
           [
+            ['main', tr('navMain'), 'logo'],
             ['voices', tr('navVoices'), 'mic'],
             ['sounds', tr('navSounds'), 'speaker'],
             ['studio', tr('navStudio'), 'flask'],
@@ -914,6 +915,48 @@ export default function App() {
 
         <div className="shell-content">
           <main className="shell-center">
+            {tab === 'main' ? (
+              <section className="home-hub">
+                <div className="library-hero">
+                  <div className="library-hero-copy">
+                    <h2>{tr('homeTitle')}</h2>
+                    <p>{tr('homeLede')}</p>
+                  </div>
+                  <div className="library-hero-art" aria-hidden>
+                    <VoiceScene3D density="compact" variant="logo" className="voice-scene-3d compact" />
+                  </div>
+                </div>
+                <div className="home-grid">
+                  {(
+                    [
+                      ['voices', tr('navVoices'), tr('homeVoicesDesc'), 'mic'],
+                      ['sounds', tr('navSounds'), tr('homeSoundsDesc'), 'speaker'],
+                      ['studio', tr('navStudio'), tr('homeStudioDesc'), 'flask'],
+                      ['settings', tr('navSettings'), tr('homeSettingsDesc'), 'gear'],
+                    ] as const
+                  ).map(([id, title, desc, variant]) => (
+                    <article key={id} className="home-card">
+                      <div className="home-card-art" aria-hidden>
+                        <VoiceScene3D
+                          density="card"
+                          variant={variant}
+                          className="voice-scene-3d card"
+                          lazy
+                        />
+                      </div>
+                      <div className="home-card-body">
+                        <h3>{title}</h3>
+                        <p>{desc}</p>
+                        <button type="button" className="primary-action" onClick={() => setTab(id)}>
+                          {tr('homeMore')}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             {tab === 'voices' ? (
               <VoiceLibraryPanel
                 presets={voicePresets}
