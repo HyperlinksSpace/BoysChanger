@@ -6,6 +6,8 @@ import {
   removeSound,
   type LibrarySound,
 } from '../audio/soundLibrary';
+import { VoiceScene3D } from './VoiceScene3D';
+import { accentFromSeed } from '../visuals/createVoiceScene';
 
 type Props = {
   labels: {
@@ -105,9 +107,14 @@ export function SoundLibraryPanel({
 
   return (
     <section className="panel compact sounds">
-      <div className="panel-head">
-        <h2>{labels.title}</h2>
-        <p className="hint">{labels.hint}</p>
+      <div className="library-hero sounds-hero">
+        <div className="library-hero-copy">
+          <h2>{labels.title}</h2>
+          <p className="hint">{labels.hint}</p>
+        </div>
+        <div className="library-hero-art" aria-hidden>
+          <VoiceScene3D density="compact" variant="speaker" className="voice-scene-3d compact" />
+        </div>
       </div>
       <div className="sound-actions">
         <button type="button" className="secondary" onClick={() => fileRef.current?.click()}>
@@ -129,24 +136,40 @@ export function SoundLibraryPanel({
         <p className="hint">{labels.empty}</p>
       ) : (
         <div className="sound-grid">
-          {sounds.map((s) => (
-            <div key={s.id} className={`sound-chip ${activeId === s.id ? 'active' : ''}`}>
-              <button type="button" className="sound-play" onClick={() => void play(s)}>
-                <strong>{s.name}</strong>
-                <span>{activeId === s.id ? labels.playing : s.source === 'user' ? 'MP3' : 'FX'}</span>
-              </button>
-              {s.source === 'user' ? (
-                <button
-                  type="button"
-                  className="sound-del"
-                  title={labels.remove}
-                  onClick={() => void removeSound(s.id).then(refresh)}
-                >
-                  ×
+          {sounds.map((s) => {
+            const color = accentFromSeed(s.id + s.name);
+            return (
+              <div key={s.id} className={`sound-chip ${activeId === s.id ? 'active' : ''}`}>
+                <button type="button" className="sound-play" onClick={() => void play(s)}>
+                  <span className="sound-3d" aria-hidden>
+                    <VoiceScene3D
+                      density="card"
+                      variant={s.source === 'user' ? 'wave' : 'speaker'}
+                      accent={color}
+                      className="voice-scene-3d card"
+                      lazy
+                    />
+                  </span>
+                  <span className="sound-meta">
+                    <strong>{s.name}</strong>
+                    <span>
+                      {activeId === s.id ? labels.playing : s.source === 'user' ? 'MP3' : 'FX'}
+                    </span>
+                  </span>
                 </button>
-              ) : null}
-            </div>
-          ))}
+                {s.source === 'user' ? (
+                  <button
+                    type="button"
+                    className="sound-del"
+                    title={labels.remove}
+                    onClick={() => void removeSound(s.id).then(refresh)}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       )}
     </section>

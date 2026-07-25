@@ -1,8 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import type { VoicePreset } from '../audio/voicePresets';
 import { VoiceScene3D } from './VoiceScene3D';
+import type { SceneVariant } from '../visuals/createVoiceScene';
 
 type Filter = 'all' | 'builtin' | 'mine';
+
+function variantForPreset(p: VoicePreset): SceneVariant {
+  if (p.id.includes('robot')) return 'gear';
+  if (p.id.includes('radio')) return 'speaker';
+  if (p.id.includes('clean')) return 'mic';
+  if (p.id.includes('alien') || p.id.includes('chipmunk')) return 'orb';
+  if (p.id.includes('elder') || p.id.includes('hero')) return 'flask';
+  return 'orb';
+}
 
 type Props = {
   presets: VoicePreset[];
@@ -50,7 +60,7 @@ export function VoiceLibraryPanel({
           <p>{labels.cloudSoon}</p>
         </div>
         <div className="library-hero-art" aria-hidden>
-          <VoiceScene3D density="compact" className="voice-scene-3d compact" />
+          <VoiceScene3D density="compact" variant="mic" className="voice-scene-3d compact" />
         </div>
       </div>
 
@@ -95,9 +105,13 @@ export function VoiceLibraryPanel({
               onClick={() => onSelect(p)}
             >
               <span className="voice-card-ring">
-                <span className="voice-card-emoji" aria-hidden>
-                  {p.emoji}
-                </span>
+                <VoiceScene3D
+                  density="card"
+                  variant={variantForPreset(p)}
+                  accent={p.color}
+                  className="voice-scene-3d card"
+                  lazy
+                />
               </span>
               <span className="voice-card-name">{p.name}</span>
               <span className="voice-card-meta">

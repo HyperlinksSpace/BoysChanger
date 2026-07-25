@@ -160,13 +160,31 @@
     },
   };
 
-  function detect() {
-    const saved = localStorage.getItem('boyschanger-site-locale');
-    if (saved && dict[saved]) return saved;
-    const lang = (navigator.language || 'en').toLowerCase();
-    if (lang.startsWith('zh')) return 'zh';
-    if (lang.startsWith('ru')) return 'ru';
+  function detectFromNavigator() {
+    const candidates = [
+      ...(navigator.languages || []),
+      navigator.language,
+      navigator.userLanguage,
+    ]
+      .filter(Boolean)
+      .map((l) => String(l).toLowerCase().replace(/_/g, '-'));
+    for (const lang of candidates) {
+      if (lang.startsWith('zh')) return 'zh';
+      if (lang.startsWith('ru')) return 'ru';
+    }
     return 'en';
+  }
+
+  function detect() {
+    // Explicit user choice only — do not lock auto-detect into localStorage
+    const user = localStorage.getItem('boyschanger-site-locale-user');
+    if (user && dict[user]) return user;
+    // Migrate old key if it was set by the language dropdown (best-effort)
+    const legacy = localStorage.getItem('boyschanger-site-locale');
+    if (legacy && dict[legacy] && localStorage.getItem('boyschanger-site-locale-locked') === '1') {
+      return legacy;
+    }
+    return detectFromNavigator();
   }
 
   let locale = detect();
@@ -180,7 +198,6 @@
     });
     const sel = document.getElementById('lang-select');
     if (sel) sel.value = locale;
-    localStorage.setItem('boyschanger-site-locale', locale);
   }
 
   async function loadRelease() {
@@ -238,9 +255,18 @@
     if (sel) {
       sel.addEventListener('change', () => {
         locale = sel.value;
+        localStorage.setItem('boyschanger-site-locale-user', locale);
+        localStorage.setItem('boyschanger-site-locale', locale);
+        localStorage.setItem('boyschanger-site-locale-locked', '1');
         apply();
         loadRelease();
       });
+    }
+    // Clear stale auto-saved locale from older builds (was written on every visit)
+    if (!localStorage.getItem('boyschanger-site-locale-user')) {
+      localStorage.removeItem('boyschanger-site-locale');
+      localStorage.removeItem('boyschanger-site-locale-locked');
+      locale = detectFromNavigator();
     }
     apply();
     loadRelease();

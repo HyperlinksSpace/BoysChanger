@@ -667,7 +667,15 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle('platform', () => process.platform);
 ipcMain.handle('get-version', () => app.getVersion());
-ipcMain.handle('get-locale', () => app.getLocale());
+ipcMain.handle('get-locale', () => {
+  try {
+    // Prefer OS UI language (ru-RU, zh-CN, …) over Chromium/app packaging locale
+    const sys = typeof app.getSystemLocale === 'function' ? app.getSystemLocale() : '';
+    return sys || app.getLocale();
+  } catch {
+    return app.getLocale();
+  }
+});
 ipcMain.handle('ensure-mic-permission', async () => ensureMicPermission());
 ipcMain.handle('virtual-cable-hints', () => detectVirtualCableHints());
 ipcMain.handle('set-system-input', async (_evt, deviceHint: string) =>

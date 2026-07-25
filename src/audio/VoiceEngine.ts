@@ -336,7 +336,8 @@ export class VoiceEngine {
     this.outElement.muted = true;
     this.outElement.srcObject = this.destination.stream;
 
-    this.analyser.connect(this.monitorGain);
+    // Hear-myself: tap processed audio to default speakers/headphones
+    this.masterGain.connect(this.monitorGain);
     this.monitorGain.connect(this.ctx.destination);
 
     // Sound library + prehear: both local speakers AND virtual-cable stream (Telegram mic)
@@ -641,14 +642,14 @@ export class VoiceEngine {
     });
 
     const hasVirtualOut = Boolean(settings.outputDeviceId);
-    // Monitor only when audio is routed to a virtual cable (headphones recommended).
-    // Monitoring while the cable path is the default speakers causes feedback.
-    const monitorOn = settings.monitorLocally && hasVirtualOut;
+    // Hear-myself plays processed voice on the default device (use headphones).
+    // Virtual cable is independent (outElement / setSinkId).
+    const monitorOn = Boolean(settings.monitorLocally);
     if (this.monitorGain) {
-      this.monitorGain.gain.setTargetAtTime(monitorOn ? 0.85 : 0, t, 0.04);
+      this.monitorGain.gain.setTargetAtTime(monitorOn ? 1 : 0, t, 0.03);
     }
     if (settings.monitorLocally && !hasVirtualOut) {
-      this.log('warn', 'monitor ignored — select CABLE Input / BlackHole as Output first');
+      this.log('warn', 'monitor on without virtual cable — use headphones to avoid feedback');
     }
     // Keep outElement muted if sink was cleared while running
     if (!hasVirtualOut && this.outElement) {

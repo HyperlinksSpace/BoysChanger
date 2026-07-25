@@ -15,6 +15,7 @@ import { SoundLibraryPanel } from './components/SoundLibraryPanel';
 import { TelegramGuideModal } from './components/TelegramGuideModal';
 import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
 import { VoiceScene3D } from './components/VoiceScene3D';
+import type { SceneVariant } from './visuals/createVoiceScene';
 import {
   applyPayloadToSettings,
   deleteVoicePreset,
@@ -68,8 +69,9 @@ function loadSettings(): VoiceSettings {
 }
 
 function loadLocale(systemLocale?: string | null): Locale {
-  const saved = localStorage.getItem('boyschanger-locale') as Locale | null;
-  if (saved && LOCALES.some((l) => l.id === saved)) return saved;
+  // Explicit user choice only — otherwise follow OS/browser language.
+  const user = localStorage.getItem('boyschanger-locale-user') as Locale | null;
+  if (user && LOCALES.some((l) => l.id === user)) return user;
   return detectLocale(systemLocale);
 }
 
@@ -141,7 +143,9 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [platform, setPlatform] = useState<string>('win32');
   const [engineOn, setEngineOn] = useState(false);
-  const [locale, setLocale] = useState<Locale>(() => loadLocale());
+  const [locale, setLocale] = useState<Locale>(() =>
+    loadLocale(typeof navigator !== 'undefined' ? navigator.language : null),
+  );
   const [version, setVersion] = useState(APP_VERSION);
   const [updateNote, setUpdateNote] = useState('');
   const [prehear, setPrehear] = useState<PrehearState>({
@@ -196,10 +200,7 @@ export default function App() {
     localStorage.setItem('boyschanger-settings', JSON.stringify(settings));
   }, [settings]);
 
-  useEffect(() => {
-    localStorage.setItem('boyschanger-locale', locale);
-  }, [locale]);
-
+  // Do not auto-persist locale here — that raced ahead of OS locale and locked "en".
   useEffect(() => {
     engineRef.current.setLogger((level, msg, data) => {
       void window.boysChanger?.debugLog({
@@ -223,10 +224,13 @@ export default function App() {
         const p = await window.boysChanger.platform();
         setPlatform(p);
         const sys = await window.boysChanger.getLocale();
-        setLocale((prev) => {
-          const saved = localStorage.getItem('boyschanger-locale');
-          return saved ? prev : loadLocale(sys);
-        });
+        localStorage.setItem('boyschanger-last-sys-locale', sys || '');
+        setLocale(loadLocale(sys));
+        // Drop legacy auto-saved locale so future launches keep following the OS
+        // unless the user picks a language in the UI.
+        if (!localStorage.getItem('boyschanger-locale-user')) {
+          localStorage.removeItem('boyschanger-locale');
+        }
         const ver = await window.boysChanger.getVersion();
         setVersion(ver);
         await window.boysChanger.ensureMicPermission();
@@ -238,7 +242,10 @@ export default function App() {
         });
 
         unsubUpdate = window.boysChanger.onUpdateStatus((payload) => {
-          const loc = (localStorage.getItem('boyschanger-locale') as Locale) || 'en';
+          const loc =
+            (localStorage.getItem('boyschanger-locale-user') as Locale) ||
+            detectLocale(localStorage.getItem('boyschanger-last-sys-locale')) ||
+            'en';
           if (payload.status === 'checking') setUpdateNote(t(loc, 'updateChecking'));
           else if (payload.status === 'available') {
             const pct = payload.message ? ` ${payload.message}` : '';
@@ -351,9 +358,8 @@ export default function App() {
         }
       }
 
-      // No cable → force monitor off (speakers + open mic = echo/feedback).
+      // No cable → warn; keep monitor available (headphones recommended).
       if (!next.outputDeviceId) {
-        next = { ...next, monitorLocally: false };
         setSystemMsg(tr('echoNoCable'));
       } else if (next.monitorLocally) {
         setSystemMsg(tr('monitorHint'));
@@ -641,9 +647,16 @@ export default function App() {
   }, []);
 
   const meterWidth = Math.min(100, Math.round(level * 280));
-  const logoSrc = './logo.png';
   const changerOn = Boolean(settings.enabled && engineOn);
   const activePreset = voicePresets.find((p) => p.id === activePresetId) || null;
+  const activeVariant: SceneVariant =
+    activePreset?.id.includes('robot')
+      ? 'gear'
+      : activePreset?.id.includes('radio')
+        ? 'speaker'
+        : activePreset?.id.includes('clean')
+          ? 'mic'
+          : 'orb';
 
   const studioPanel = (
     <>
@@ -651,6 +664,7 @@ export default function App() {
         <div className="active-voice-art">
           <VoiceScene3D
             density="compact"
+            variant={activeVariant}
             accent={activePreset?.color || '#d4ff4a'}
             className="voice-scene-3d compact"
           />
@@ -819,15 +833,17 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="nav-rail" aria-label="Main">
-        <img className="nav-logo" src={logoSrc} width={40} height={40} alt="BoysChanger" />
+        <div className="nav-logo" title="BoysChanger">
+          <VoiceScene3D density="card" variant="logo" className="voice-scene-3d card" />
+        </div>
         {(
           [
-            ['voices', tr('navVoices'), '🎙️'],
-            ['sounds', tr('navSounds'), '🎵'],
-            ['studio', tr('navStudio'), '🧪'],
-            ['settings', tr('navSettings'), '⚙️'],
+            ['voices', tr('navVoices'), 'mic'],
+            ['sounds', tr('navSounds'), 'speaker'],
+            ['studio', tr('navStudio'), 'flask'],
+            ['settings', tr('navSettings'), 'gear'],
           ] as const
-        ).map(([id, label, icon]) => (
+        ).map(([id, label, variant]) => (
           <button
             key={id}
             type="button"
@@ -835,7 +851,15 @@ export default function App() {
             title={label}
             onClick={() => setTab(id)}
           >
-            <span aria-hidden>{icon}</span>
+            <span className="nav-icon-3d" aria-hidden>
+              <VoiceScene3D
+                density="card"
+                variant={variant}
+                accent={tab === id ? '#0c1210' : '#d4ff4a'}
+                className="voice-scene-3d card"
+                lazy
+              />
+            </span>
             <span className="nav-label">{label}</span>
           </button>
         ))}
@@ -859,7 +883,14 @@ export default function App() {
           <div className="shell-top-actions">
             <label className="lang-inline">
               <span>{tr('language')}</span>
-              <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
+              <select
+                value={locale}
+                onChange={(e) => {
+                  const next = e.target.value as Locale;
+                  localStorage.setItem('boyschanger-locale-user', next);
+                  setLocale(next);
+                }}
+              >
                 {LOCALES.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.label}
@@ -1057,13 +1088,25 @@ export default function App() {
           disabled={busy}
           onClick={() => void toggleChanger()}
         >
-          🎤
+          <VoiceScene3D
+            density="card"
+            variant="mic"
+            accent={changerOn ? '#0c1210' : '#d4ff4a'}
+            className="voice-scene-3d card"
+          />
         </button>
         <label className={`dock-monitor ${settings.monitorLocally ? 'on' : ''}`} title={tr('monitorHint')}>
           <input
             type="checkbox"
             checked={settings.monitorLocally}
-            onChange={(e) => update('monitorLocally', e.target.checked)}
+            onChange={(e) => {
+              const on = e.target.checked;
+              update('monitorLocally', on);
+              if (on) {
+                setSystemMsg(tr('monitorHint'));
+                if (!engineOn) void startEngine(true, { ...settings, monitorLocally: true });
+              }
+            }}
           />
           <span>👂 {tr('dockHearMyself')}</span>
         </label>

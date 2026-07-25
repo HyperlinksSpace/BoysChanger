@@ -522,9 +522,20 @@ const ru: Record<MessageKey, string> = {
 const catalogs: Record<Locale, Record<MessageKey, string>> = { en: { ...en }, zh, ru };
 
 export function detectLocale(raw?: string | null): Locale {
-  const lang = (raw || (typeof navigator !== 'undefined' ? navigator.language : 'en') || 'en').toLowerCase();
-  if (lang.startsWith('zh')) return 'zh';
-  if (lang.startsWith('ru')) return 'ru';
+  const candidates = [
+    raw,
+    typeof navigator !== 'undefined' ? navigator.language : null,
+    ...(typeof navigator !== 'undefined' && Array.isArray(navigator.languages)
+      ? navigator.languages
+      : []),
+  ]
+    .filter(Boolean)
+    .map((l) => String(l).toLowerCase().replace(/_/g, '-'));
+
+  for (const lang of candidates) {
+    if (lang.startsWith('zh')) return 'zh';
+    if (lang.startsWith('ru')) return 'ru';
+  }
   return 'en';
 }
 
