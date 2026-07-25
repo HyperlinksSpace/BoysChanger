@@ -107,7 +107,7 @@ export function applyPayloadToSettings(
   };
 }
 
-/** Cute built-in starter voices (always free). */
+/** Built-in starter voices. */
 export const BUILTIN_VOICES: VoicePreset[] = [
   {
     id: 'builtin-clean',

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { VoicePreset } from '../audio/voicePresets';
+import { VoiceScene3D } from './VoiceScene3D';
 
 type Filter = 'all' | 'builtin' | 'mine';
 
@@ -49,9 +50,7 @@ export function VoiceLibraryPanel({
           <p>{labels.cloudSoon}</p>
         </div>
         <div className="library-hero-art" aria-hidden>
-          <span className="blob b1" />
-          <span className="blob b2" />
-          <span className="blob b3" />
+          <VoiceScene3D density="compact" className="voice-scene-3d compact" />
         </div>
       </div>
 

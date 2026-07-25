@@ -7,8 +7,8 @@
   --accent-dim: #9fc22a;
   --line: rgba(232, 242, 236, 0.12);
   --panel: rgba(18, 32, 27, 0.94);
-  --font-display: 'Bebas Neue', Impact, sans-serif;
-  --font-body: 'DM Sans', 'Segoe UI', sans-serif;
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
 }
 
 * {

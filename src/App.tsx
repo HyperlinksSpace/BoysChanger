@@ -14,6 +14,7 @@ import { PrehearPanel } from './components/PrehearPanel';
 import { SoundLibraryPanel } from './components/SoundLibraryPanel';
 import { TelegramGuideModal } from './components/TelegramGuideModal';
 import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
+import { VoiceScene3D } from './components/VoiceScene3D';
 import {
   applyPayloadToSettings,
   deleteVoicePreset,
@@ -647,13 +648,12 @@ export default function App() {
   const studioPanel = (
     <>
       <div className="active-voice-card">
-        <div
-          className="active-voice-art"
-          style={{
-            background: `radial-gradient(circle at 30% 30%, ${activePreset?.color || '#d4ff4a'}55, transparent 60%), #15221c`,
-          }}
-        >
-          <span aria-hidden>{activePreset?.emoji || '🎙️'}</span>
+        <div className="active-voice-art">
+          <VoiceScene3D
+            density="compact"
+            accent={activePreset?.color || '#d4ff4a'}
+            className="voice-scene-3d compact"
+          />
         </div>
         <div className="active-voice-meta">
           <p className="eyebrow">{tr('studioActive')}</p>

@@ -150,12 +150,14 @@
   },
   "dependencies": {
     "@soundtouchjs/formant-correction-worklet": "^2.1.0",
-    "electron-updater": "^6.6.2"
+    "electron-updater": "^6.6.2",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.185.1",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
