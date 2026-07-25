@@ -24,7 +24,8 @@ body {
   color: var(--ink);
   background:
     radial-gradient(1000px 520px at 12% -8%, rgba(212, 255, 74, 0.18), transparent 55%),
-    radial-gradient(800px 480px at 92% 8%, rgba(255, 122, 69, 0.16), transparent 50%),
+    radial-gradient(800px 480px at 92% 8%, rgba(92, 225, 255, 0.14), transparent 50%),
+    radial-gradient(700px 420px at 70% 100%, rgba(255, 92, 173, 0.1), transparent 45%),
     linear-gradient(165deg, #070d0b, var(--bg) 40%, #101c17);
   min-height: 100vh;
 }
@@ -196,18 +197,98 @@ main {
 
 .hero-visual {
   position: relative;
-  min-height: 320px;
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+}
+
+.hero-stage {
+  position: relative;
+  width: min(380px, 86vw);
+  height: min(380px, 86vw);
   display: grid;
   place-items: center;
 }
 
 .hero-logo {
-  width: min(320px, 70vw);
+  width: min(240px, 55vw);
   height: auto;
   border-radius: 28%;
   animation: float 5.5s ease-in-out infinite;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
   filter: drop-shadow(0 0 28px rgba(212, 255, 74, 0.18));
+  z-index: 2;
+}
+
+.voice-orb {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.2));
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  animation: float 4.8s ease-in-out infinite;
+  z-index: 3;
+}
+
+.voice-orb.o1 {
+  top: 8%;
+  right: 6%;
+  background: radial-gradient(circle at 30% 30%, #ff5cad, #7a2048);
+  animation-delay: -0.5s;
+}
+.voice-orb.o2 {
+  bottom: 18%;
+  right: 0;
+  background: radial-gradient(circle at 30% 30%, #d4ff4a, #4a6a10);
+  animation-delay: -1.4s;
+}
+.voice-orb.o3 {
+  top: 18%;
+  left: 0;
+  background: radial-gradient(circle at 30% 30%, #b388ff, #3a2466);
+  animation-delay: -2.2s;
+}
+.voice-orb.o4 {
+  bottom: 10%;
+  left: 8%;
+  background: radial-gradient(circle at 30% 30%, #5ce1ff, #1a4a5a);
+  animation-delay: -3s;
+}
+
+.dock-preview {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(10, 16, 14, 0.9);
+  border: 1px solid var(--line);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.dock-preview .dp-mic {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #10160f;
+  box-shadow: 0 0 18px rgba(212, 255, 74, 0.4);
+}
+
+.dock-preview .dp-power {
+  color: #ff6b6b;
 }
 
 .waveform {

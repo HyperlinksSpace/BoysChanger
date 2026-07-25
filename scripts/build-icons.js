@@ -97,6 +97,25 @@ async function main() {
   fs.writeFileSync(path.join(buildDir, 'icon-status-on.png'), statusOn);
   fs.writeFileSync(path.join(buildDir, 'icon-status-off.png'), statusOff);
 
+  // System tray: green when ON, red when OFF (always visible while app runs)
+  async function makeTrayIcon(color) {
+    const size = 32;
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+  <rect width="${size}" height="${size}" rx="7" fill="#0f1a16"/>
+  <circle cx="16" cy="14" r="7.5" fill="none" stroke="${color}" stroke-width="2.4"/>
+  <path d="M16 9.5v9" stroke="${color}" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="25" cy="25" r="5" fill="${color}"/>
+</svg>`;
+    return sharp(Buffer.from(svg)).png().toBuffer();
+  }
+  const trayOn = await makeTrayIcon(green);
+  const trayOff = await makeTrayIcon(red);
+  fs.writeFileSync(path.join(buildDir, 'tray-on.png'), trayOn);
+  fs.writeFileSync(path.join(buildDir, 'tray-off.png'), trayOff);
+  fs.writeFileSync(path.join(publicDir, 'tray-on.png'), trayOn);
+  fs.writeFileSync(path.join(publicDir, 'tray-off.png'), trayOff);
+
   console.log('Icons written to build/ and public/');
 }
 

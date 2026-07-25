@@ -64,6 +64,14 @@
         "to": "icon-status-off.png"
       },
       {
+        "from": "build/tray-on.png",
+        "to": "tray-on.png"
+      },
+      {
+        "from": "build/tray-off.png",
+        "to": "tray-off.png"
+      },
+      {
         "from": "electron/scripts",
         "to": "scripts"
       },

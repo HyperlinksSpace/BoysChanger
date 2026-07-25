@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BoysChanger — System-wide voice changer</title>
+    <title>BoysChanger — Free system-wide voice studio</title>
     <meta
       name="description"
-      content="BoysChanger is a free system-wide voice changer for Windows and macOS with race, gender, age, timbre, stacked effects, and 11-second prehear."
+      content="BoysChanger is a free Voicemod-style voice changer for Windows and macOS: colorful voice library, free Voice Studio with local saves, soundboard, and a system tray icon that turns red when off."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -45,11 +45,11 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow" data-i18n="eyebrow">Windows & macOS · Open source · HyperlinksSpace</p>
+          <p class="eyebrow" data-i18n="eyebrow">Windows & macOS · Free Voice Studio · HyperlinksSpace</p>
           <h1>BoysChanger</h1>
           <p class="lede" data-i18n="lede">
-            Turn your microphone into a character. Shape race, gender, age, and timbre, stack
-            effects, prehear the last 11 seconds, then push the result system-wide.
+            A cute full-screen voice studio: colorful built-in voices, local Voice Studio saves,
+            soundboard, system tray status, and system-wide routing — free, no Pro paywall.
           </p>
           <div class="cta-row" id="download">
             <a class="btn primary" id="dl-windows" href="https://github.com/HyperlinksSpace/BoysChanger/releases/latest" data-i18n="dlWin">
@@ -61,40 +61,43 @@
           </div>
           <p class="release-meta" id="release-meta" data-i18n="loading">Loading latest release…</p>
         </div>
-        <div class="hero-visual">
-          <img
-            class="hero-logo"
-            src="./assets/logo.svg"
-            width="320"
-            height="320"
-            alt="BoysChanger logo"
-          />
-          <div class="waveform" aria-hidden="true">
-            <span></span><span></span><span></span><span></span><span></span>
-            <span></span><span></span><span></span><span></span><span></span>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="hero-stage">
+            <img class="hero-logo" src="./assets/logo.svg" width="280" height="280" alt="" />
+            <div class="voice-orb o1">🌸</div>
+            <div class="voice-orb o2">🤖</div>
+            <div class="voice-orb o3">🛡️</div>
+            <div class="voice-orb o4">👽</div>
+            <div class="dock-preview">
+              <span class="dp-power">⏻</span>
+              <span class="dp-mic">🎤</span>
+              <span class="dp-ear">👂</span>
+            </div>
           </div>
         </div>
       </section>
 
       <section class="features" id="features">
-        <h2 data-i18n="featuresTitle">Built for live voice</h2>
-        <p class="section-lede" data-i18n="featuresLede">One engine, many characters — toggled with a single ON/OFF control.</p>
+        <h2 data-i18n="featuresTitle">Cute like Voicemod. Free like open source.</h2>
+        <p class="section-lede" data-i18n="featuresLede">
+          Full-screen library, free Voice Studio, tray icon that turns red when you’re off.
+        </p>
         <ul class="feature-list">
           <li>
-            <strong data-i18n="f1t">Character stack</strong>
-            <span data-i18n="f1d">Race, gender, age, timbre, amplifier, and volume.</span>
+            <strong data-i18n="f1t">Colorful voice library</strong>
+            <span data-i18n="f1d">Built-in characters plus voices you save locally in Studio.</span>
           </li>
           <li>
-            <strong data-i18n="f2t">Layered effects</strong>
-            <span data-i18n="f2d">Echo, wah-wah, distortion, reverb, chorus, robot, flanger, bitcrush — all at once.</span>
+            <strong data-i18n="f2t">Voice Studio — always free</strong>
+            <span data-i18n="f2d">Race, gender, age, timbre, FX — craft and keep voices on your device.</span>
           </li>
           <li>
-            <strong data-i18n="f3t">11s prehear</strong>
-            <span data-i18n="f3d">Replay the last eleven seconds of processed voice before you go live.</span>
+            <strong data-i18n="f3t">Soundboard + prehear</strong>
+            <span data-i18n="f3d">Upload MP3s and replay the last 11 seconds before you go live.</span>
           </li>
           <li>
-            <strong data-i18n="f4t">System-wide input</strong>
-            <span data-i18n="f4d">Route through a virtual cable and set it as the OS microphone.</span>
+            <strong data-i18n="f4t">Tray stays with you</strong>
+            <span data-i18n="f4d">System tray icon stays after close; green when ON, red when OFF.</span>
           </li>
         </ul>
       </section>

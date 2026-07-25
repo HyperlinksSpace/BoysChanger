@@ -38,6 +38,11 @@ const api = {
     ipcRenderer.invoke('check-for-updates'),
   setChangerStatus: (on: boolean): Promise<{ ok: boolean; on: boolean }> =>
     ipcRenderer.invoke('set-changer-status', on),
+  onTrayToggleChanger: (cb: () => void): (() => void) => {
+    const listener = () => cb();
+    ipcRenderer.on('tray-toggle-changer', listener);
+    return () => ipcRenderer.removeListener('tray-toggle-changer', listener);
+  },
   debugLog: (payload: {
     level?: 'info' | 'warn' | 'error';
     scope?: string;

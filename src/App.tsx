@@ -13,8 +13,18 @@ import {
 import { PrehearPanel } from './components/PrehearPanel';
 import { SoundLibraryPanel } from './components/SoundLibraryPanel';
 import { TelegramGuideModal } from './components/TelegramGuideModal';
+import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
+import {
+  applyPayloadToSettings,
+  deleteVoicePreset,
+  listVoicePresets,
+  saveVoicePreset,
+  type VoicePreset,
+} from './audio/voicePresets';
 import { LOCALES, detectLocale, t, type Locale, type MessageKey } from './i18n';
 import './styles.css';
+
+type AppTab = 'voices' | 'sounds' | 'studio' | 'settings';
 
 interface DeviceOption {
   deviceId: string;
@@ -146,6 +156,11 @@ export default function App() {
   const [cableInstallerReady, setCableInstallerReady] = useState(false);
   const [cableOsInstalled, setCableOsInstalled] = useState(false);
   const [cableInstallBusy, setCableInstallBusy] = useState(false);
+  const [tab, setTab] = useState<AppTab>('voices');
+  const [voicePresets, setVoicePresets] = useState<VoicePreset[]>([]);
+  const [activePresetId, setActivePresetId] = useState<string | null>('builtin-clean');
+  const [saveName, setSaveName] = useState('');
+  const [saveBusy, setSaveBusy] = useState(false);
 
   const tr = useCallback((key: MessageKey, vars?: Record<string, string | number>) => t(locale, key, vars), [locale]);
 
@@ -394,6 +409,16 @@ export default function App() {
     await startEngine(true);
   };
 
+  const toggleChangerRef = useRef(toggleChanger);
+  toggleChangerRef.current = toggleChanger;
+
+  useEffect(() => {
+    const unsub = window.boysChanger?.onTrayToggleChanger?.(() => {
+      void toggleChangerRef.current();
+    });
+    return () => unsub?.();
+  }, []);
+
   const applySystemWide = async () => {
     if (!window.boysChanger) {
       setStatus('statusNeedDesktop');
@@ -484,6 +509,50 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    void listVoicePresets().then(setVoicePresets);
+  }, []);
+
+  const refreshVoicePresets = useCallback(async () => {
+    setVoicePresets(await listVoicePresets());
+  }, []);
+
+  const selectPreset = useCallback((preset: VoicePreset) => {
+    setActivePresetId(preset.id);
+    setSettings((s) => applyPayloadToSettings(s, preset.payload));
+    setSaveName(preset.source === 'user' ? preset.name : '');
+  }, []);
+
+  const handleSaveVoice = async () => {
+    setSaveBusy(true);
+    try {
+      const name =
+        saveName.trim() ||
+        `${tr(`gender_${settings.gender}` as MessageKey)} ${tr(`age_${settings.age}` as MessageKey)}`;
+      const existingUser =
+        activePresetId && !activePresetId.startsWith('builtin-')
+          ? voicePresets.find((p) => p.id === activePresetId)
+          : undefined;
+      const saved = await saveVoicePreset(name, settings, {
+        id: existingUser?.id,
+        color: existingUser?.color,
+        emoji: existingUser?.emoji,
+      });
+      setActivePresetId(saved.id);
+      setSaveName(saved.name);
+      setSystemMsg(tr('studioSaved'));
+      await refreshVoicePresets();
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
+  const handleDeleteVoice = async (id: string) => {
+    await deleteVoicePreset(id);
+    if (activePresetId === id) setActivePresetId(null);
+    await refreshVoicePresets();
+  };
+
   const refreshCableStatus = useCallback(async () => {
     const st = await window.boysChanger?.virtualCableStatus();
     if (!st) return;
@@ -572,282 +641,440 @@ export default function App() {
 
   const meterWidth = Math.min(100, Math.round(level * 280));
   const logoSrc = './logo.png';
+  const changerOn = Boolean(settings.enabled && engineOn);
+  const activePreset = voicePresets.find((p) => p.id === activePresetId) || null;
+
+  const studioPanel = (
+    <>
+      <div className="active-voice-card">
+        <div
+          className="active-voice-art"
+          style={{
+            background: `radial-gradient(circle at 30% 30%, ${activePreset?.color || '#d4ff4a'}55, transparent 60%), #15221c`,
+          }}
+        >
+          <span aria-hidden>{activePreset?.emoji || '🎙️'}</span>
+        </div>
+        <div className="active-voice-meta">
+          <p className="eyebrow">{tr('studioActive')}</p>
+          <h3>{activePreset?.name || tr('studioTitle')}</h3>
+          <p className="hint">{tr('studioFree')}</p>
+        </div>
+      </div>
+
+      <div className="preset-rows">
+        <div className="preset-row">
+          <span className="preset-label">{tr('race')}</span>
+          <div className="chips">
+            {RACES.map((r) => (
+              <button
+                key={r}
+                type="button"
+                className={settings.race === r ? 'chip active' : 'chip'}
+                onClick={() => update('race', r)}
+              >
+                {tr(`race_${r}` as MessageKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="preset-row">
+          <span className="preset-label">{tr('gender')}</span>
+          <div className="chips">
+            {GENDERS.map((g) => (
+              <button
+                key={g}
+                type="button"
+                className={settings.gender === g ? 'chip active' : 'chip'}
+                onClick={() => update('gender', g)}
+              >
+                {tr(`gender_${g}` as MessageKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="preset-row">
+          <span className="preset-label">{tr('age')}</span>
+          <div className="chips">
+            {AGES.map((a) => (
+              <button
+                key={a}
+                type="button"
+                className={settings.age === a ? 'chip active' : 'chip'}
+                onClick={() => update('age', a)}
+              >
+                {tr(`age_${a}` as MessageKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="sliders">
+        <label>
+          <span>
+            {tr('timbre')} <em>{settings.timbre}</em>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={settings.timbre}
+            onChange={(e) => update('timbre', Number(e.target.value))}
+          />
+        </label>
+        <label>
+          <span>
+            {tr('amplifier')} <em>{settings.amplifier}</em>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={settings.amplifier}
+            onChange={(e) => update('amplifier', Number(e.target.value))}
+          />
+        </label>
+        <label>
+          <span>
+            {tr('volume')} <em>{settings.volume}</em>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={settings.volume}
+            onChange={(e) => update('volume', Number(e.target.value))}
+          />
+        </label>
+        <label>
+          <span>
+            {tr('effectsMix')} <em>{settings.effectMix}</em>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={settings.effectMix}
+            onChange={(e) => update('effectMix', Number(e.target.value))}
+          />
+        </label>
+      </div>
+
+      <div className="effects-grid compact">
+        {FX_IDS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className={settings.effects[id] ? 'fx on' : 'fx'}
+            onClick={() => toggleEffect(id)}
+            title={tr(`fx_${id}_desc` as MessageKey)}
+          >
+            <strong>{tr(`fx_${id}` as MessageKey)}</strong>
+          </button>
+        ))}
+      </div>
+
+      <div className="studio-save-row">
+        <input
+          type="text"
+          value={saveName}
+          placeholder={tr('studioNamePlaceholder')}
+          onChange={(e) => setSaveName(e.target.value)}
+        />
+        <button
+          type="button"
+          className="primary-action"
+          disabled={saveBusy}
+          onClick={() => void handleSaveVoice()}
+        >
+          {tr('studioSave')}
+        </button>
+      </div>
+
+      <PrehearPanel
+        state={prehear}
+        engineRunning={engineOn}
+        labels={{
+          title: tr('prehear'),
+          hint: systemMsg || tr('prehearHint'),
+          seekHint: tr('prehearSeekHint'),
+          play: tr('prehearPlay'),
+          pause: tr('prehearPause'),
+          needEngine: tr('prehearNeedEngine'),
+          empty: tr('prehearEmpty'),
+        }}
+        onPlay={() => {
+          engineRef.current.preparePrehear();
+          engineRef.current.playPrehear();
+        }}
+        onPause={() => engineRef.current.pausePrehear()}
+        onSeek={(seconds) => {
+          engineRef.current.seekPrehear(seconds);
+        }}
+      />
+    </>
+  );
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand-row">
-          <img className="brand-logo" src={logoSrc} width={44} height={44} alt="BoysChanger" />
-          <div className="brand-text">
-            <h1 className="brand">
-              BoysChanger
-              <span className="version">v{version}</span>
-            </h1>
-            <p className="eyebrow">{tr('eyebrow')}</p>
-          </div>
-        </div>
-        <div className="topbar-right">
-          <label className="lang-inline">
-            <span>{tr('language')}</span>
-            <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
-              {LOCALES.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
-          </label>
+    <div className="app-shell">
+      <aside className="nav-rail" aria-label="Main">
+        <img className="nav-logo" src={logoSrc} width={40} height={40} alt="BoysChanger" />
+        {(
+          [
+            ['voices', tr('navVoices'), '🎙️'],
+            ['sounds', tr('navSounds'), '🎵'],
+            ['studio', tr('navStudio'), '🧪'],
+            ['settings', tr('navSettings'), '⚙️'],
+          ] as const
+        ).map(([id, label, icon]) => (
           <button
+            key={id}
             type="button"
-            className="secondary update-btn"
-            onClick={() => {
-              setUpdateNote(tr('updateChecking'));
-              void window.boysChanger?.checkForUpdates();
-            }}
+            className={tab === id ? 'nav-item active' : 'nav-item'}
+            title={label}
+            onClick={() => setTab(id)}
           >
-            {tr('updateCheck')}
+            <span aria-hidden>{icon}</span>
+            <span className="nav-label">{label}</span>
           </button>
-          <button
-            type="button"
-            className="secondary update-btn"
-            title={tr('openLogs')}
-            onClick={() => void window.boysChanger?.openLogFolder()}
-          >
-            {tr('openLogs')}
-          </button>
-          {updateNote ? <span className="update-note">{updateNote}</span> : null}
-        </div>
-      </header>
+        ))}
+        <div className="nav-spacer" />
+        <span className="nav-version">v{version}</span>
+      </aside>
 
-      <section className="control-strip">
-        <div className="power-block">
-          <button
-            type="button"
-            className={`power ${settings.enabled && engineOn ? 'on' : ''}`}
-            disabled={busy}
-            onClick={() => void toggleChanger()}
-          >
-            {settings.enabled && engineOn ? 'ON' : 'OFF'}
-          </button>
-          <div className="power-meta">
-            <p className="power-hint">{tr('powerHint')}</p>
-            <div className="meter" aria-hidden>
-              <div className="meter-fill" style={{ width: `${meterWidth}%` }} />
-            </div>
-            <p className="status">{tr(statusKey, statusVars)}</p>
+      <div className="shell-body">
+        <header className="shell-top">
+          <div className="shell-brand">
+            <h1>BoysChanger</h1>
+            <p>{tr('eyebrow')}</p>
           </div>
-        </div>
-        <PrehearPanel
-          state={prehear}
-          engineRunning={engineOn}
-          labels={{
-            title: tr('prehear'),
-            hint: systemMsg || tr('prehearHint'),
-            seekHint: tr('prehearSeekHint'),
-            play: tr('prehearPlay'),
-            pause: tr('prehearPause'),
-            needEngine: tr('prehearNeedEngine'),
-            empty: tr('prehearEmpty'),
-          }}
-          onPlay={() => {
-            engineRef.current.preparePrehear();
-            engineRef.current.playPrehear();
-          }}
-          onPause={() => engineRef.current.pausePrehear()}
-          onSeek={(seconds) => {
-            engineRef.current.seekPrehear(seconds);
-          }}
-        />
-      </section>
-
-      <section className="panel compact character">
-        <h2>{tr('voiceCharacter')}</h2>
-        <div className="preset-rows">
-          <div className="preset-row">
-            <span className="preset-label">{tr('race')}</span>
-            <div className="chips">
-              {RACES.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  className={settings.race === r ? 'chip active' : 'chip'}
-                  onClick={() => update('race', r)}
-                >
-                  {tr(`race_${r}` as MessageKey)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="preset-row">
-            <span className="preset-label">{tr('gender')}</span>
-            <div className="chips">
-              {GENDERS.map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  className={settings.gender === g ? 'chip active' : 'chip'}
-                  onClick={() => update('gender', g)}
-                >
-                  {tr(`gender_${g}` as MessageKey)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="preset-row">
-            <span className="preset-label">{tr('age')}</span>
-            <div className="chips">
-              {AGES.map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  className={settings.age === a ? 'chip active' : 'chip'}
-                  onClick={() => update('age', a)}
-                >
-                  {tr(`age_${a}` as MessageKey)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="sliders">
-          <label>
-            <span>
-              {tr('timbre')} <em>{settings.timbre}</em>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={settings.timbre}
-              onChange={(e) => update('timbre', Number(e.target.value))}
-            />
-          </label>
-          <label>
-            <span>
-              {tr('amplifier')} <em>{settings.amplifier}</em>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={settings.amplifier}
-              onChange={(e) => update('amplifier', Number(e.target.value))}
-            />
-          </label>
-          <label>
-            <span>
-              {tr('volume')} <em>{settings.volume}</em>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={settings.volume}
-              onChange={(e) => update('volume', Number(e.target.value))}
-            />
-          </label>
-          <label>
-            <span>
-              {tr('effectsMix')} <em>{settings.effectMix}</em>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={settings.effectMix}
-              onChange={(e) => update('effectMix', Number(e.target.value))}
-            />
-          </label>
-        </div>
-      </section>
-
-      <section className="panel compact devices">
-        <div className="panel-head">
-          <h2>{tr('audioRouting')}</h2>
-          <p className="hint">{platform === 'darwin' ? tr('hintMac') : tr('hintWin')}</p>
-        </div>
-        <div className="grid-2">
-          <label>
-            {tr('inputMic')}
-            <select
-              value={settings.inputDeviceId}
-              onChange={(e) => update('inputDeviceId', e.target.value)}
-            >
-              <option value="default">{tr('systemDefault')}</option>
-              {inputs.map((d) => (
-                <option key={d.deviceId} value={d.deviceId}>
-                  {d.label}
-                  {looksLikeVirtualInput(d.label) ? tr('virtualAvoid') : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {tr('outputCable')}
-            <select
-              value={settings.outputDeviceId}
-              onChange={(e) => update('outputDeviceId', e.target.value)}
-            >
-              <option value="">{tr('defaultSpeakers')}</option>
-              {outputs.map((d) => (
-                <option key={d.deviceId} value={d.deviceId}>
-                  {d.label}
-                  {looksLikeVirtualOutput(d.label) ? ' ✓' : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="row actions">
-          <button type="button" className="secondary" onClick={() => void refreshDevices()}>
-            {tr('refreshDevices')}
-          </button>
-          <button
-            type="button"
-            className="primary-action"
-            disabled={busy}
-            onClick={() => void setupForTelegram()}
-          >
-            {tr('telegramSetupBtn')}
-          </button>
-          <button type="button" className="secondary" onClick={() => setTelegramGuideOpen(true)}>
-            {tr('telegramGuideBtn')}
-          </button>
-          <button type="button" className="secondary" onClick={() => void applySystemWide()}>
-            {tr('applySystem')}
-          </button>
-          {!engineOn ? (
+          <input
+            className="shell-search"
+            type="search"
+            placeholder={tr('searchApp')}
+            readOnly
+            tabIndex={-1}
+          />
+          <div className="shell-top-actions">
+            <label className="lang-inline">
+              <span>{tr('language')}</span>
+              <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
+                {LOCALES.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
-              className="secondary"
-              disabled={busy}
-              onClick={() => void startEngine(settings.enabled)}
+              className="secondary update-btn"
+              onClick={() => {
+                setUpdateNote(tr('updateChecking'));
+                void window.boysChanger?.checkForUpdates();
+              }}
             >
-              {tr('startEngine')}
+              {tr('updateCheck')}
             </button>
-          ) : (
-            <button type="button" className="secondary" disabled={busy} onClick={() => void stopEngine()}>
-              {tr('stopEngine')}
-            </button>
-          )}
-          <label className="check" title={tr('monitorHint')}>
-            <input
-              type="checkbox"
-              checked={settings.monitorLocally}
-              onChange={(e) => update('monitorLocally', e.target.checked)}
-            />
-            {tr('monitorLocally')}
-          </label>
+            {updateNote ? <span className="update-note">{updateNote}</span> : null}
+          </div>
+        </header>
+
+        <div className="shell-content">
+          <main className="shell-center">
+            {tab === 'voices' ? (
+              <VoiceLibraryPanel
+                presets={voicePresets}
+                activeId={activePresetId}
+                labels={{
+                  title: tr('voicesTitle'),
+                  builtin: tr('voicesBuiltin'),
+                  mine: tr('voicesMine'),
+                  all: tr('voicesAll'),
+                  search: tr('voicesSearch'),
+                  emptyMine: tr('voicesEmptyMine'),
+                  freeBadge: tr('voicesFree'),
+                  delete: tr('voicesDelete'),
+                  cloudSoon: tr('voicesCloudSoon'),
+                }}
+                onSelect={(p) => {
+                  selectPreset(p);
+                  setTab('studio');
+                }}
+                onDelete={(id) => void handleDeleteVoice(id)}
+              />
+            ) : null}
+
+            {tab === 'sounds' ? (
+              <SoundLibraryPanel
+                labels={{
+                  title: tr('soundsTitle'),
+                  hint: tr('soundsHint'),
+                  upload: tr('soundsUpload'),
+                  playing: tr('soundsPlaying'),
+                  remove: tr('soundsRemove'),
+                  empty: tr('soundsEmpty'),
+                  needEngine: tr('soundsNeedEngine'),
+                }}
+                engineRunning={engineOn}
+                onPlayBuffer={playLibraryBuffer}
+                onStop={stopLibrary}
+                onEnsureEngine={ensureEngineForSounds}
+              />
+            ) : null}
+
+            {tab === 'studio' ? (
+              <section className="panel studio-main">
+                <h2>{tr('studioTitle')}</h2>
+                <p className="hint">{tr('studioFree')}</p>
+                {studioPanel}
+              </section>
+            ) : null}
+
+            {tab === 'settings' ? (
+              <section className="panel compact devices">
+                <div className="panel-head">
+                  <h2>{tr('audioRouting')}</h2>
+                  <p className="hint">{platform === 'darwin' ? tr('hintMac') : tr('hintWin')}</p>
+                </div>
+                <div className="grid-2">
+                  <label>
+                    {tr('inputMic')}
+                    <select
+                      value={settings.inputDeviceId}
+                      onChange={(e) => update('inputDeviceId', e.target.value)}
+                    >
+                      <option value="default">{tr('systemDefault')}</option>
+                      {inputs.map((d) => (
+                        <option key={d.deviceId} value={d.deviceId}>
+                          {d.label}
+                          {looksLikeVirtualInput(d.label) ? tr('virtualAvoid') : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {tr('outputCable')}
+                    <select
+                      value={settings.outputDeviceId}
+                      onChange={(e) => update('outputDeviceId', e.target.value)}
+                    >
+                      <option value="">{tr('defaultSpeakers')}</option>
+                      {outputs.map((d) => (
+                        <option key={d.deviceId} value={d.deviceId}>
+                          {d.label}
+                          {looksLikeVirtualOutput(d.label) ? ' ✓' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="row actions">
+                  <button type="button" className="secondary" onClick={() => void refreshDevices()}>
+                    {tr('refreshDevices')}
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-action"
+                    disabled={busy}
+                    onClick={() => void setupForTelegram()}
+                  >
+                    {tr('telegramSetupBtn')}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => setTelegramGuideOpen(true)}>
+                    {tr('telegramGuideBtn')}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => void applySystemWide()}>
+                    {tr('applySystem')}
+                  </button>
+                  {!engineOn ? (
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => void startEngine(settings.enabled)}
+                    >
+                      {tr('startEngine')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => void stopEngine()}
+                    >
+                      {tr('stopEngine')}
+                    </button>
+                  )}
+                </div>
+                <ul className="telegram-checks inline-status">
+                  <li className={cablePresent ? 'ok' : 'bad'}>
+                    {cablePresent ? tr('telegramCableOk') : tr('cableStatusMissing')}
+                  </li>
+                  <li className={outputIsCable ? 'ok' : 'bad'}>
+                    {outputIsCable ? tr('telegramOutputOk') : tr('telegramOutputNeed')}
+                  </li>
+                </ul>
+                <footer className="footer">
+                  <span>
+                    {tr('footer')} · v{version}
+                  </span>
+                  <button
+                    type="button"
+                    className="linkish"
+                    onClick={() => void window.boysChanger?.openLogFolder()}
+                  >
+                    {tr('openLogs')}
+                  </button>
+                </footer>
+              </section>
+            ) : null}
+          </main>
+
+          {tab === 'voices' ? (
+            <aside className="shell-right">
+              <h2>{tr('voiceCharacter')}</h2>
+              {studioPanel}
+            </aside>
+          ) : null}
         </div>
-        <ul className="telegram-checks inline-status">
-          <li className={cablePresent ? 'ok' : 'bad'}>
-            {cablePresent ? tr('telegramCableOk') : tr('cableStatusMissing')}
-          </li>
-          <li className={outputIsCable ? 'ok' : 'bad'}>
-            {outputIsCable ? tr('telegramOutputOk') : tr('telegramOutputNeed')}
-          </li>
-        </ul>
-      </section>
+      </div>
+
+      <div className="dock-bar" role="toolbar" aria-label="Voice controls">
+        <button
+          type="button"
+          className={`dock-power ${changerOn ? 'on' : 'off'}`}
+          disabled={busy}
+          title={tr('powerHint')}
+          onClick={() => void toggleChanger()}
+        >
+          ⏻
+        </button>
+        <button
+          type="button"
+          className={`dock-mic ${changerOn ? 'on' : ''}`}
+          disabled={busy}
+          onClick={() => void toggleChanger()}
+        >
+          🎤
+        </button>
+        <label className={`dock-monitor ${settings.monitorLocally ? 'on' : ''}`} title={tr('monitorHint')}>
+          <input
+            type="checkbox"
+            checked={settings.monitorLocally}
+            onChange={(e) => update('monitorLocally', e.target.checked)}
+          />
+          <span>👂 {tr('dockHearMyself')}</span>
+        </label>
+        <button type="button" className="dock-fx" onClick={() => setTab('studio')} title={tr('dockEffects')}>
+          ⚡
+        </button>
+        <div className="dock-meter" aria-hidden>
+          <div className="meter-fill" style={{ width: `${meterWidth}%` }} />
+        </div>
+        <p className="dock-status">{tr(statusKey, statusVars)}</p>
+      </div>
 
       <TelegramGuideModal
         open={telegramGuideOpen}
@@ -867,48 +1094,6 @@ export default function App() {
         onInstallCable={() => void installVirtualCable()}
         onOpenSound={() => void window.boysChanger?.openSoundInputSettings()}
       />
-
-      <section className="panel compact effects">
-        <h2>{tr('effects')}</h2>
-        <div className="effects-grid">
-          {FX_IDS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className={settings.effects[id] ? 'fx on' : 'fx'}
-              onClick={() => toggleEffect(id)}
-              title={tr(`fx_${id}_desc` as MessageKey)}
-            >
-              <strong>{tr(`fx_${id}` as MessageKey)}</strong>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <SoundLibraryPanel
-        labels={{
-          title: tr('soundsTitle'),
-          hint: tr('soundsHint'),
-          upload: tr('soundsUpload'),
-          playing: tr('soundsPlaying'),
-          remove: tr('soundsRemove'),
-          empty: tr('soundsEmpty'),
-          needEngine: tr('soundsNeedEngine'),
-        }}
-        engineRunning={engineOn}
-        onPlayBuffer={playLibraryBuffer}
-        onStop={stopLibrary}
-        onEnsureEngine={ensureEngineForSounds}
-      />
-
-      <footer className="footer">
-        <span>
-          {tr('footer')} · v{version}
-        </span>
-        <button type="button" className="linkish" onClick={() => void window.boysChanger?.openLogFolder()}>
-          {tr('openLogs')}
-        </button>
-      </footer>
     </div>
   );
 }

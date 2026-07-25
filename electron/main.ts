@@ -3,6 +3,8 @@ import https from 'node:https';
 import {
   app,
   BrowserWindow,
+  Tray,
+  Menu,
   ipcMain,
   nativeImage,
   shell,
@@ -45,7 +47,9 @@ process.env.VITE_PUBLIC = app.isPackaged
   : path.join(process.env.DIST, '../public');
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
 let changerActive = false;
+let isQuitting = false;
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let updateCheckInFlight = false;
 let lastUpdateCheckAt = 0;
@@ -92,8 +96,85 @@ function resolveStatusIconPath(on: boolean) {
   );
 }
 
+function resolveTrayIconPath(on: boolean) {
+  return firstExisting(
+    assetCandidates(on ? 'tray-on.png' : 'tray-off.png', on ? 'overlay-on.png' : 'overlay-off.png', 'icon.png'),
+  );
+}
+
+function updateTrayIcon() {
+  if (!tray || tray.isDestroyed()) return;
+  const trayPath = resolveTrayIconPath(changerActive);
+  if (!trayPath) return;
+  const img = nativeImage.createFromPath(trayPath);
+  if (img.isEmpty()) return;
+  tray.setImage(process.platform === 'darwin' ? img.resize({ width: 18, height: 18 }) : img);
+  tray.setToolTip(changerActive ? 'BoysChanger — ON' : 'BoysChanger — OFF');
+  rebuildTrayMenu();
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function rebuildTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
+  const menu = Menu.buildFromTemplate([
+    {
+      label: changerActive ? 'Voice changer: ON' : 'Voice changer: OFF',
+      enabled: false,
+    },
+    { type: 'separator' },
+    {
+      label: changerActive ? 'Turn OFF' : 'Turn ON',
+      click: () => {
+        mainWindow?.webContents.send('tray-toggle-changer');
+      },
+    },
+    {
+      label: 'Show BoysChanger',
+      click: () => showMainWindow(),
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+  tray.setContextMenu(menu);
+}
+
+function createTray() {
+  if (tray && !tray.isDestroyed()) return;
+  const trayPath = resolveTrayIconPath(false);
+  const fallback = resolveIconPath();
+  const src = trayPath || fallback;
+  if (!src) return;
+  let img = nativeImage.createFromPath(src);
+  if (img.isEmpty()) return;
+  if (process.platform === 'darwin') {
+    img = img.resize({ width: 18, height: 18 });
+  }
+  tray = new Tray(img);
+  tray.setToolTip('BoysChanger — OFF');
+  tray.on('click', () => showMainWindow());
+  tray.on('double-click', () => showMainWindow());
+  rebuildTrayMenu();
+}
+
 function applyChangerStatus(on: boolean) {
   changerActive = on;
+  updateTrayIcon();
+
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
   if (process.platform === 'win32') {
@@ -129,10 +210,10 @@ function applyChangerStatus(on: boolean) {
 function createWindow() {
   const icon = resolveIconPath();
   mainWindow = new BrowserWindow({
-    width: 920,
-    height: 680,
-    minWidth: 760,
-    minHeight: 560,
+    width: 1280,
+    height: 800,
+    minWidth: 1024,
+    minHeight: 640,
     title: `BoysChanger v${app.getVersion()}`,
     backgroundColor: '#0c1210',
     ...(icon ? { icon } : {}),
@@ -160,6 +241,12 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     applyChangerStatus(false);
+  });
+
+  mainWindow.on('close', (e) => {
+    if (isQuitting || process.platform === 'darwin') return;
+    e.preventDefault();
+    mainWindow?.hide();
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -554,15 +641,28 @@ app.whenReady().then(async () => {
   initLogger();
   await ensureMicPermission();
   createWindow();
+  createTray();
+  applyChangerStatus(false);
   setupAutoUpdater();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    else showMainWindow();
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+  if (tray && !tray.isDestroyed()) {
+    tray.destroy();
+    tray = null;
+  }
+});
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin' && isQuitting) {
+    app.quit();
+  }
 });
 
 ipcMain.handle('platform', () => process.platform);
