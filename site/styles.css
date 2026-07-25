@@ -22,7 +22,7 @@ body {
   font-weight: 500;
   color: var(--ink);
   background: #000000;
-  min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -45,6 +45,8 @@ body {
   padding: 16px 20px;
   border-bottom: 1px solid var(--line);
   background: #000000;
+  height: 56px;
+  box-sizing: border-box;
 }
 
 .landing-logo {
@@ -93,22 +95,46 @@ body {
   border: 0;
 }
 
+.font-preload {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  font-family: var(--body);
+  font-weight: 700;
+}
+
 .landing-main {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  padding-top: 60px;
+  height: auto;
+  max-height: none;
+  padding-top: 56px;
   box-sizing: border-box;
+  border-bottom: 1px solid var(--line);
+  overflow: visible;
 }
 
 .landing-content-col,
 .landing-visual-col {
   width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .landing-content {
-  padding: 40px 20px 24px;
+  padding: 28px 20px 24px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: auto;
 }
 
 .eyebrow {
@@ -204,18 +230,33 @@ body {
 .landing-scene-wrap {
   box-sizing: border-box;
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Mobile: square block under copy */
   aspect-ratio: 1;
-  min-height: 240px;
+  max-height: min(52dvh, 420px);
   background: #000;
   border-top: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-scene-wrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .epic-band {
   padding: 56px 20px;
-  border-top: 1px solid var(--line);
+  border-top: 0;
   max-width: 1100px;
   margin: 0 auto;
   width: 100%;
+}
+
+.epic-band + .epic-band {
+  border-top: 1px solid var(--line);
 }
 
 .epic-band h2 {
@@ -384,27 +425,35 @@ body {
 
 @media (min-width: 768px) {
   .landing-header {
-    padding: 20px 40px;
+    padding: 0 40px;
+    height: 64px;
   }
 
   .landing-main {
     flex-direction: row;
     align-items: stretch;
     padding-top: 64px;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    /* Bottom rule always visible on first block */
+    border-bottom: 1px solid var(--line);
   }
 
   .landing-content-col,
   .landing-visual-col {
     width: 50%;
     max-width: 50%;
+    height: 100%;
+    min-height: 0;
   }
 
   .landing-content {
-    padding: 48px 40px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-height: calc(100dvh - 64px);
+    padding: 40px 40px;
+    min-height: 0;
+    height: 100%;
+    overflow: auto;
   }
 
   .landing-title {
@@ -418,8 +467,10 @@ body {
 
   .landing-scene-wrap {
     aspect-ratio: auto;
+    max-height: none;
+    flex: 1 1 auto;
     height: 100%;
-    min-height: calc(100dvh - 64px);
+    width: 100%;
     border-top: 0;
     border-left: 1px solid var(--line);
   }
@@ -439,7 +490,12 @@ body {
 
 @media (min-width: 1032px) {
   .landing-header {
-    padding: 24px 60px;
+    padding: 0 60px;
+    height: 72px;
+  }
+
+  .landing-main {
+    padding-top: 72px;
   }
 
   .landing-logo {

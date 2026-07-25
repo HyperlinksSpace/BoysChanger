@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap&subset=latin,latin-ext,cyrillic,cyrillic-ext"
       rel="stylesheet"
     />
     <link rel="icon" href="./assets/logo-mark.svg" type="image/svg+xml" />
@@ -20,6 +20,8 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <!-- Force Inter Cyrillic/CJK subset fetch so mixed-language lines stay consistent -->
+    <span class="font-preload" aria-hidden="true">АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабв中文</span>
     <div class="landing-root">
       <header class="landing-header">
         <a class="logo" href="./">

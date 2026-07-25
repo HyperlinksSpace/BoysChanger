@@ -1,5 +1,6 @@
 /**
  * Animated 3D voice emblem (Hyperlinks Space–style black void + lime accent).
+ * Pauses when off-screen to avoid scroll jank.
  */
 import * as THREE from 'three';
 
@@ -8,17 +9,18 @@ export function createVoiceScene(container, options = {}) {
   const compact = options.density === 'compact';
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x000000, 0.045);
+  scene.fog = new THREE.FogExp2(0x000000, 0.038);
 
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-  camera.position.set(0, 0.35, compact ? 5.2 : 4.6);
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  // Pull back slightly so the full mic + rings fit without bottom clipping
+  camera.position.set(0, 0.15, compact ? 5.6 : 5.1);
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: true,
     powerPreference: 'high-performance',
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.setClearColor(0x000000, 0);
   renderer.domElement.style.width = '100%';
   renderer.domElement.style.height = '100%';
@@ -26,6 +28,7 @@ export function createVoiceScene(container, options = {}) {
   container.appendChild(renderer.domElement);
 
   const root = new THREE.Group();
+  root.position.y = 0.05;
   scene.add(root);
 
   const micMat = new THREE.MeshStandardMaterial({
@@ -92,7 +95,7 @@ export function createVoiceScene(container, options = {}) {
     root.add(m);
   });
 
-  const count = compact ? 180 : 420;
+  const count = compact ? 120 : 220;
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
     positions[i * 3] = (Math.random() - 0.5) * 12;
@@ -124,24 +127,39 @@ export function createVoiceScene(container, options = {}) {
 
   let raf = 0;
   let disposed = false;
+  let visible = true;
   const clock = new THREE.Clock();
 
   const resize = () => {
     if (disposed) return;
     const w = Math.max(1, container.clientWidth);
     const h = Math.max(1, container.clientHeight);
+    if (w < 2 || h < 2) return;
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setSize(w, h, false);
   };
 
-  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => resize()) : null;
   ro?.observe(container);
   window.addEventListener('resize', resize);
-  resize();
+
+  const io =
+    typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver(
+          ([entry]) => {
+            visible = Boolean(entry?.isIntersecting);
+            if (visible && !raf && !disposed) raf = requestAnimationFrame(tick);
+          },
+          { threshold: 0.05 },
+        )
+      : null;
+  io?.observe(container);
 
   const tick = () => {
     if (disposed) return;
+    raf = 0;
+    if (!visible) return;
     const t = clock.getElapsedTime();
     mic.rotation.y = t * 0.35;
     mic.position.y = Math.sin(t * 0.9) * 0.08;
@@ -151,14 +169,20 @@ export function createVoiceScene(container, options = {}) {
       const a = t * 0.55 + (i / orbs.length) * Math.PI * 2;
       o.position.x = Math.cos(a) * (2.0 + Math.sin(t + i) * 0.15);
       o.position.z = Math.sin(a) * (2.0 + Math.cos(t + i) * 0.15);
-      o.position.y = Math.sin(t * 1.2 + i) * 0.55;
+      o.position.y = Math.sin(t * 1.2 + i) * 0.45;
     });
     particles.rotation.y = t * 0.03;
-    root.rotation.x = Math.sin(t * 0.2) * 0.08;
+    root.rotation.x = Math.sin(t * 0.2) * 0.06;
     renderer.render(scene, camera);
     raf = requestAnimationFrame(tick);
   };
-  raf = requestAnimationFrame(tick);
+
+  // Layout may settle after fonts/images — resize twice
+  requestAnimationFrame(() => {
+    resize();
+    raf = requestAnimationFrame(tick);
+  });
+  setTimeout(resize, 120);
 
   return {
     setAccent(hex) {
@@ -171,7 +195,9 @@ export function createVoiceScene(container, options = {}) {
     dispose() {
       disposed = true;
       cancelAnimationFrame(raf);
+      raf = 0;
       ro?.disconnect();
+      io?.disconnect();
       window.removeEventListener('resize', resize);
       renderer.dispose();
       if (renderer.domElement.parentElement === container) {
