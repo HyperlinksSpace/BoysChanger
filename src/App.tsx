@@ -14,6 +14,8 @@ import { PrehearPanel } from './components/PrehearPanel';
 import { SoundLibraryPanel } from './components/SoundLibraryPanel';
 import { TelegramGuideModal } from './components/TelegramGuideModal';
 import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
+import { ProfileAvatar } from './components/ProfileAvatar';
+import { ProfileModal } from './components/ProfileModal';
 import { VoiceScene3D } from './components/VoiceScene3D';
 import { variantFromSeed, type SceneVariant } from './visuals/createVoiceScene';
 import { getSoundArrayBuffer, listSounds, type LibrarySound } from './audio/soundLibrary';
@@ -24,6 +26,7 @@ import {
   saveVoicePreset,
   type VoicePreset,
 } from './audio/voicePresets';
+import { DEFAULT_PROFILE, loadUserProfile, type UserProfile } from './profile/userProfile';
 import { LOCALES, detectLocale, t, type Locale, type MessageKey } from './i18n';
 import './styles.css';
 
@@ -169,6 +172,8 @@ export default function App() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [dashSounds, setDashSounds] = useState<LibrarySound[]>([]);
   const [dashPlayingId, setDashPlayingId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const tr = useCallback((key: MessageKey, vars?: Record<string, string | number>) => t(locale, key, vars), [locale]);
 
@@ -521,6 +526,10 @@ export default function App() {
 
   useEffect(() => {
     void listVoicePresets().then(setVoicePresets);
+  }, []);
+
+  useEffect(() => {
+    void loadUserProfile().then(setProfile);
   }, []);
 
   useEffect(() => {
@@ -882,16 +891,15 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="nav-rail" aria-label="Main">
-        <div className="nav-logo" title="BoysChanger">
-          <VoiceScene3D
-            density="card"
-            variant="logo"
-            accent="#d4ff4a"
-            className="voice-scene-3d card"
-            lazy={false}
-            priority="nav"
-          />
-        </div>
+        <button
+          type="button"
+          className="nav-logo"
+          title={profile.displayName || tr('profileOpen')}
+          aria-label={tr('profileOpen')}
+          onClick={() => setProfileOpen(true)}
+        >
+          <ProfileAvatar avatar={profile.avatar} className="profile-avatar nav" />
+        </button>
         {(
           [
             ['main', tr('navMain')],
@@ -1448,6 +1456,14 @@ export default function App() {
         }}
         onInstallCable={() => void installVirtualCable()}
         onOpenSound={() => void window.boysChanger?.openSoundInputSettings()}
+      />
+
+      <ProfileModal
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        profile={profile}
+        onSaved={setProfile}
+        tr={tr}
       />
     </div>
   );
