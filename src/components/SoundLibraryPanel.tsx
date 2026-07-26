@@ -6,7 +6,8 @@ import {
   removeSound,
   type LibrarySound,
 } from '../audio/soundLibrary';
-import { accentFromSeed } from '../visuals/createVoiceScene';
+import { VoiceScene3D } from './VoiceScene3D';
+import { accentFromSeed, variantFromSeed } from '../visuals/createVoiceScene';
 
 type Props = {
   labels: {
@@ -111,12 +112,14 @@ export function SoundLibraryPanel({
           <h2>{labels.title}</h2>
           <p className="hint">{labels.hint}</p>
         </div>
-        <div
-          className="library-hero-mark"
-          aria-hidden
-          style={{ '--mark': '#d4ff4a' } as React.CSSProperties}
-        >
-          <span className="mark-orb speaker" />
+        <div className="library-hero-art" aria-hidden>
+          <VoiceScene3D
+            density="compact"
+            variant="speaker"
+            accent="#5ce1ff"
+            className="voice-scene-3d compact"
+            priority="hero"
+          />
         </div>
       </div>
       <div className="sound-actions">
@@ -141,14 +144,20 @@ export function SoundLibraryPanel({
         <div className="sound-grid">
           {sounds.map((s) => {
             const color = accentFromSeed(s.id + s.name);
+            const variant = s.source === 'user' ? 'wave' : variantFromSeed(s.id);
             return (
               <div key={s.id} className={`sound-chip ${activeId === s.id ? 'active' : ''}`}>
                 <button type="button" className="sound-play" onClick={() => void play(s)}>
-                  <span
-                    className="sound-orb"
-                    aria-hidden
-                    style={{ background: color } as React.CSSProperties}
-                  />
+                  <span className="sound-3d" aria-hidden>
+                    <VoiceScene3D
+                      density="card"
+                      variant={variant === 'wave' ? 'wave' : variant}
+                      accent={color}
+                      className="voice-scene-3d card"
+                      lazy
+                      priority="card"
+                    />
+                  </span>
                   <span className="sound-meta">
                     <strong>{s.name}</strong>
                     <span>

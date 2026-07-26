@@ -14,8 +14,8 @@ import { PrehearPanel } from './components/PrehearPanel';
 import { SoundLibraryPanel } from './components/SoundLibraryPanel';
 import { TelegramGuideModal } from './components/TelegramGuideModal';
 import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
-import { NavIcon, type NavIconKind } from './components/NavIcon';
 import { VoiceScene3D } from './components/VoiceScene3D';
+import { variantFromSeed, type SceneVariant } from './visuals/createVoiceScene';
 import { getSoundArrayBuffer, listSounds, type LibrarySound } from './audio/soundLibrary';
 import {
   applyPayloadToSettings,
@@ -659,6 +659,31 @@ export default function App() {
   const meterWidth = Math.min(100, Math.round(level * 280));
   const changerOn = Boolean(settings.enabled && engineOn);
   const activePreset = voicePresets.find((p) => p.id === activePresetId) || null;
+  const activeVariant: SceneVariant = activePreset
+    ? activePreset.id.includes('robot')
+      ? 'gear'
+      : activePreset.id.includes('radio')
+        ? 'speaker'
+        : activePreset.id.includes('clean')
+          ? 'mic'
+          : activePreset.id.includes('alien')
+            ? 'crystal'
+            : activePreset.id.includes('chipmunk')
+              ? 'orb'
+              : activePreset.id.includes('elder') || activePreset.id.includes('hero')
+                ? 'flask'
+                : activePreset.id.includes('girl') || activePreset.id.includes('bright')
+                  ? 'ring'
+                  : variantFromSeed(activePreset.id)
+    : 'logo';
+
+  const navVariant = (id: AppTab): SceneVariant => {
+    if (id === 'main') return 'logo';
+    if (id === 'voices') return 'mic';
+    if (id === 'sounds') return 'speaker';
+    if (id === 'studio') return 'flask';
+    return 'gear';
+  };
 
   const playDashSound = async (sound: LibrarySound) => {
     stopLibrary();
@@ -684,11 +709,15 @@ export default function App() {
   const studioPanel = (
     <>
       <div className="active-voice-card">
-        <div
-          className="active-voice-orb"
-          aria-hidden
-          style={{ background: activePreset?.color || '#d4ff4a' }}
-        />
+        <div className="active-voice-art">
+          <VoiceScene3D
+            density="compact"
+            variant={activeVariant}
+            accent={activePreset?.color || '#d4ff4a'}
+            className="voice-scene-3d compact"
+            priority="hero"
+          />
+        </div>
         <div className="active-voice-meta">
           <p className="eyebrow">{tr('studioActive')}</p>
           <h3>{activePreset?.name || tr('studioTitle')}</h3>
@@ -854,17 +883,24 @@ export default function App() {
     <div className="app-shell">
       <aside className="nav-rail" aria-label="Main">
         <div className="nav-logo" title="BoysChanger">
-          <NavIcon kind="logo" />
+          <VoiceScene3D
+            density="card"
+            variant="logo"
+            accent="#d4ff4a"
+            className="voice-scene-3d card"
+            lazy={false}
+            priority="nav"
+          />
         </div>
         {(
           [
-            ['main', tr('navMain'), 'main'],
-            ['voices', tr('navVoices'), 'mic'],
-            ['sounds', tr('navSounds'), 'speaker'],
-            ['studio', tr('navStudio'), 'flask'],
-            ['settings', tr('navSettings'), 'gear'],
+            ['main', tr('navMain')],
+            ['voices', tr('navVoices')],
+            ['sounds', tr('navSounds')],
+            ['studio', tr('navStudio')],
+            ['settings', tr('navSettings')],
           ] as const
-        ).map(([id, label, icon]) => (
+        ).map(([id, label]) => (
           <button
             key={id}
             type="button"
@@ -872,8 +908,15 @@ export default function App() {
             title={label}
             onClick={() => setTab(id)}
           >
-            <span className="nav-icon-wrap" aria-hidden>
-              <NavIcon kind={icon as NavIconKind} />
+            <span className="nav-icon-3d" aria-hidden>
+              <VoiceScene3D
+                density="card"
+                variant={navVariant(id)}
+                accent={tab === id ? '#0c1210' : '#d4ff4a'}
+                className="voice-scene-3d card"
+                lazy={false}
+                priority="nav"
+              />
             </span>
             <span className="nav-label">{label}</span>
           </button>
@@ -971,7 +1014,13 @@ export default function App() {
                     <p className="dash-status">{tr(statusKey, statusVars)}</p>
                   </div>
                   <div className="library-hero-art" aria-hidden>
-                    <VoiceScene3D density="compact" variant="logo" className="voice-scene-3d compact" />
+                    <VoiceScene3D
+                      density="compact"
+                      variant="logo"
+                      accent="#d4ff4a"
+                      className="voice-scene-3d compact"
+                      priority="hero"
+                    />
                   </div>
                 </div>
 
@@ -994,7 +1043,32 @@ export default function App() {
                         style={{ '--card-accent': p.color } as React.CSSProperties}
                         onClick={() => selectPreset(p)}
                       >
-                        <span className="dash-voice-dot" aria-hidden />
+                        <span className="dash-voice-3d" aria-hidden>
+                          <VoiceScene3D
+                            density="card"
+                            variant={
+                              p.id.includes('robot')
+                                ? 'gear'
+                                : p.id.includes('radio')
+                                  ? 'speaker'
+                                  : p.id.includes('clean')
+                                    ? 'mic'
+                                    : p.id.includes('alien')
+                                      ? 'crystal'
+                                      : p.id.includes('chipmunk')
+                                        ? 'orb'
+                                        : p.id.includes('elder') || p.id.includes('hero')
+                                          ? 'flask'
+                                          : p.id.includes('girl')
+                                            ? 'ring'
+                                            : variantFromSeed(p.id)
+                            }
+                            accent={p.color}
+                            className="voice-scene-3d card"
+                            lazy
+                            priority="card"
+                          />
+                        </span>
                         <span>{p.name}</span>
                       </button>
                     ))}
@@ -1015,16 +1089,30 @@ export default function App() {
                     <p className="hint">{tr('soundsEmpty')}</p>
                   ) : (
                     <div className="dash-sound-row">
-                      {dashSounds.slice(0, 8).map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          className={`dash-sound-chip ${dashPlayingId === s.id ? 'active' : ''}`}
-                          onClick={() => void playDashSound(s)}
-                        >
-                          {dashPlayingId === s.id ? tr('soundsPlaying') : s.name}
-                        </button>
-                      ))}
+                      {dashSounds.slice(0, 8).map((s) => {
+                        const color = `hsl(${[...s.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 360} 90% 62%)`;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            className={`dash-sound-chip ${dashPlayingId === s.id ? 'active' : ''}`}
+                            style={{ '--card-accent': color } as React.CSSProperties}
+                            onClick={() => void playDashSound(s)}
+                          >
+                            <span className="dash-voice-3d" aria-hidden>
+                              <VoiceScene3D
+                                density="card"
+                                variant={s.source === 'user' ? 'wave' : 'speaker'}
+                                accent={color}
+                                className="voice-scene-3d card"
+                                lazy
+                                priority="card"
+                              />
+                            </span>
+                            <span>{dashPlayingId === s.id ? tr('soundsPlaying') : s.name}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </article>
@@ -1310,7 +1398,14 @@ export default function App() {
           disabled={busy}
           onClick={() => void toggleChanger()}
         >
-          <NavIcon kind="mic" />
+          <VoiceScene3D
+            density="card"
+            variant="mic"
+            accent={changerOn ? '#0c1210' : '#d4ff4a'}
+            className="voice-scene-3d card"
+            lazy={false}
+            priority="nav"
+          />
         </button>
         <label className={`dock-monitor ${settings.monitorLocally ? 'on' : ''}`} title={tr('monitorHint')}>
           <input

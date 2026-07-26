@@ -1,7 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import type { VoicePreset } from '../audio/voicePresets';
+import { VoiceScene3D } from './VoiceScene3D';
+import { variantFromSeed, type SceneVariant } from '../visuals/createVoiceScene';
 
 type Filter = 'all' | 'builtin' | 'mine';
+
+function variantForPreset(p: VoicePreset): SceneVariant {
+  if (p.id.includes('robot')) return 'gear';
+  if (p.id.includes('radio')) return 'speaker';
+  if (p.id.includes('clean')) return 'mic';
+  if (p.id.includes('alien')) return 'crystal';
+  if (p.id.includes('chipmunk')) return 'orb';
+  if (p.id.includes('elder') || p.id.includes('hero')) return 'flask';
+  if (p.id.includes('girl') || p.id.includes('bright')) return 'ring';
+  return variantFromSeed(p.id + p.name);
+}
 
 type Props = {
   presets: VoicePreset[];
@@ -48,12 +61,14 @@ export function VoiceLibraryPanel({
           <h2>{labels.title}</h2>
           <p>{labels.cloudSoon}</p>
         </div>
-        <div
-          className="library-hero-mark"
-          aria-hidden
-          style={{ '--mark': '#d4ff4a' } as React.CSSProperties}
-        >
-          <span className="mark-orb" />
+        <div className="library-hero-art" aria-hidden>
+          <VoiceScene3D
+            density="compact"
+            variant="mic"
+            accent="#d4ff4a"
+            className="voice-scene-3d compact"
+            priority="hero"
+          />
         </div>
       </div>
 
@@ -97,7 +112,16 @@ export function VoiceLibraryPanel({
               style={{ '--card-accent': p.color } as React.CSSProperties}
               onClick={() => onSelect(p)}
             >
-              <span className="voice-card-orb" aria-hidden />
+              <span className="voice-card-ring">
+                <VoiceScene3D
+                  density="card"
+                  variant={variantForPreset(p)}
+                  accent={p.color}
+                  className="voice-scene-3d card"
+                  lazy
+                  priority="card"
+                />
+              </span>
               <span className="voice-card-name">{p.name}</span>
               <span className="voice-card-meta">
                 {p.source === 'builtin' ? labels.freeBadge : labels.mine}
