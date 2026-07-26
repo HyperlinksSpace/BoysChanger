@@ -1125,6 +1125,26 @@ input[type='range']::-webkit-slider-thumb {
   background: transparent;
 }
 
+.nav-icon-wrap {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(212, 255, 74, 0.08);
+  color: var(--accent);
+}
+
+.nav-icon-wrap .nav-svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nav-item.active .nav-icon-wrap {
+  background: rgba(12, 18, 16, 0.2);
+  color: #0c1210;
+}
+
 .voice-scene-3d {
   position: relative;
   width: 100%;
@@ -1431,13 +1451,23 @@ input[type='range']::-webkit-slider-thumb {
 }
 
 .dash-voice-3d {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
   background: #000;
   border: 1px solid color-mix(in srgb, var(--card-accent, var(--accent)) 40%, transparent);
+  position: relative;
+}
+
+.dash-voice-3d .voice-scene-3d,
+.dash-voice-3d .voice-scene-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0 !important;
 }
 
 .dash-studio-row {
@@ -1863,8 +1893,7 @@ input[type='range']::-webkit-slider-thumb {
 }
 
 .dock-power,
-.dock-mic,
-.dock-fx {
+.dock-mic {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -1881,7 +1910,8 @@ input[type='range']::-webkit-slider-thumb {
 }
 
 .dock-power.on,
-.dock-mic.on {
+.dock-mic.on,
+.dock-studio.on {
   background: var(--accent);
   color: #0c1210;
   border-color: transparent;
@@ -1902,6 +1932,41 @@ input[type='range']::-webkit-slider-thumb {
   height: 100%;
   min-height: 0;
   pointer-events: none;
+}
+
+.dock-studio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 14px 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.dock-studio:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: rgba(212, 255, 74, 0.1);
+}
+
+.dock-studio:active {
+  transform: scale(0.97);
+}
+
+.dock-studio-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.dock-studio-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .sounds-hero {

@@ -17,7 +17,7 @@ type Waiter = {
   grant: () => void;
 };
 
-const MAX = 16;
+const MAX = 22;
 let seq = 1;
 const held = new Map<number, Holder>();
 const queue: Waiter[] = [];

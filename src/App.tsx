@@ -14,10 +14,11 @@ import { PrehearPanel } from './components/PrehearPanel';
 import { SoundLibraryPanel } from './components/SoundLibraryPanel';
 import { TelegramGuideModal } from './components/TelegramGuideModal';
 import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
+import { NavIcon, type NavIconKind } from './components/NavIcon';
 import { ProfileAvatar } from './components/ProfileAvatar';
 import { ProfileModal } from './components/ProfileModal';
 import { VoiceScene3D } from './components/VoiceScene3D';
-import { variantFromSeed, type SceneVariant } from './visuals/createVoiceScene';
+import { accentFromSeed, variantFromSeed, type SceneVariant } from './visuals/createVoiceScene';
 import { getSoundArrayBuffer, listSounds, type LibrarySound } from './audio/soundLibrary';
 import {
   applyPayloadToSettings,
@@ -686,8 +687,8 @@ export default function App() {
                   : variantFromSeed(activePreset.id)
     : 'logo';
 
-  const navVariant = (id: AppTab): SceneVariant => {
-    if (id === 'main') return 'logo';
+  const navIcon = (id: AppTab): NavIconKind => {
+    if (id === 'main') return 'main';
     if (id === 'voices') return 'mic';
     if (id === 'sounds') return 'speaker';
     if (id === 'studio') return 'flask';
@@ -916,15 +917,8 @@ export default function App() {
             title={label}
             onClick={() => setTab(id)}
           >
-            <span className="nav-icon-3d" aria-hidden>
-              <VoiceScene3D
-                density="card"
-                variant={navVariant(id)}
-                accent={tab === id ? '#0c1210' : '#d4ff4a'}
-                className="voice-scene-3d card"
-                lazy={false}
-                priority="nav"
-              />
+            <span className="nav-icon-wrap" aria-hidden>
+              <NavIcon kind={navIcon(id)} />
             </span>
             <span className="nav-label">{label}</span>
           </button>
@@ -1038,9 +1032,6 @@ export default function App() {
                       <h3>{tr('navVoices')}</h3>
                       <p>{tr('homeVoicesDesc')}</p>
                     </div>
-                    <button type="button" className="secondary" onClick={() => setTab('voices')}>
-                      {tr('homeMore')}
-                    </button>
                   </header>
                   <div className="dash-voice-row">
                     {voicePresets.slice(0, 10).map((p) => (
@@ -1089,16 +1080,14 @@ export default function App() {
                       <h3>{tr('navSounds')}</h3>
                       <p>{tr('homeSoundsDesc')}</p>
                     </div>
-                    <button type="button" className="secondary" onClick={() => setTab('sounds')}>
-                      {tr('homeMore')}
-                    </button>
                   </header>
                   {dashSounds.length === 0 ? (
                     <p className="hint">{tr('soundsEmpty')}</p>
                   ) : (
                     <div className="dash-sound-row">
                       {dashSounds.slice(0, 8).map((s) => {
-                        const color = `hsl(${[...s.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 360} 90% 62%)`;
+                        const color = accentFromSeed(s.id + s.name);
+                        const variant = s.source === 'user' ? 'wave' : variantFromSeed(s.id + s.name);
                         return (
                           <button
                             key={s.id}
@@ -1110,7 +1099,7 @@ export default function App() {
                             <span className="dash-voice-3d" aria-hidden>
                               <VoiceScene3D
                                 density="card"
-                                variant={s.source === 'user' ? 'wave' : 'speaker'}
+                                variant={variant}
                                 accent={color}
                                 className="voice-scene-3d card"
                                 lazy
@@ -1131,9 +1120,6 @@ export default function App() {
                       <h3>{tr('navStudio')}</h3>
                       <p>{tr('homeStudioDesc')}</p>
                     </div>
-                    <button type="button" className="secondary" onClick={() => setTab('studio')}>
-                      {tr('homeMore')}
-                    </button>
                   </header>
                   <div className="preset-row dash-studio-row">
                     <span className="preset-label">{tr('gender')}</span>
@@ -1186,9 +1172,6 @@ export default function App() {
                       <h3>{tr('audioRouting')}</h3>
                       <p>{tr('homeSettingsDesc')}</p>
                     </div>
-                    <button type="button" className="secondary" onClick={() => setTab('settings')}>
-                      {tr('homeMore')}
-                    </button>
                   </header>
                   <div className="dash-route-grid">
                     <label>
@@ -1430,8 +1413,16 @@ export default function App() {
           />
           <span>👂 {tr('dockHearMyself')}</span>
         </label>
-        <button type="button" className="dock-fx" onClick={() => setTab('studio')} title={tr('dockEffects')}>
-          ⚡
+        <button
+          type="button"
+          className={`dock-studio ${tab === 'studio' ? 'on' : ''}`}
+          title={tr('dockStudioHint')}
+          onClick={() => setTab('studio')}
+        >
+          <span className="dock-studio-icon" aria-hidden>
+            ✦
+          </span>
+          <span className="dock-studio-label">{tr('dockStudio')}</span>
         </button>
         <div className="dock-meter" aria-hidden>
           <div className="meter-fill" style={{ width: `${meterWidth}%` }} />

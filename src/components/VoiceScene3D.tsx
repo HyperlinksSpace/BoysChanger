@@ -78,7 +78,16 @@ export function VoiceScene3D({
       density,
       variant,
     });
+    // Tiny chips often lay out after first paint — nudge resize.
+    const t1 = window.setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 40);
+    const t2 = window.setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 160);
     return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
       handle.current?.dispose();
       handle.current = null;
     };
