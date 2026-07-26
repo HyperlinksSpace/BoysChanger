@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import {
   ACC_OPTIONS,
   HAIR_OPTIONS,
@@ -143,13 +143,12 @@ function ComposedSvg({ avatar }: { avatar: ComposedAvatar }) {
 }
 
 export function ProfileAvatar({ avatar, className, title }: Props) {
-  if (avatar.mode === 'upload' && avatar.previewUrl) {
-    return (
-      <span className={className || 'profile-avatar'} title={title}>
-        <img src={avatar.previewUrl} alt="" className="profile-avatar-img" draggable={false} />
-      </span>
-    );
-  }
+  const [uploadBroken, setUploadBroken] = useState(false);
+  const previewUrl = avatar.mode === 'upload' ? avatar.previewUrl : null;
+
+  useEffect(() => {
+    setUploadBroken(false);
+  }, [previewUrl]);
 
   const composed: ComposedAvatar =
     avatar.mode === 'compose'
@@ -162,6 +161,20 @@ export function ProfileAvatar({ avatar, className, title }: Props) {
           accessory: 'headset',
           mood: 'smile',
         };
+
+  if (avatar.mode === 'upload' && previewUrl && !uploadBroken) {
+    return (
+      <span className={className || 'profile-avatar'} title={title}>
+        <img
+          src={previewUrl}
+          alt=""
+          className="profile-avatar-img"
+          draggable={false}
+          onError={() => setUploadBroken(true)}
+        />
+      </span>
+    );
+  }
 
   return (
     <span className={className || 'profile-avatar'} title={title}>

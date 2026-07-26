@@ -1,6 +1,9 @@
 /**
  * Caps concurrent WebGL contexts so Chromium doesn't kill canvases
  * when many animated 3D cards mount at once.
+ *
+ * Chromium soft-limit is typically ~8–16 contexts. Keep MAX below that
+ * and prefer CSS chip fallbacks for dense lists.
  */
 
 export type ScenePriority = 'card' | 'nav' | 'hero';
@@ -8,7 +11,8 @@ export type ScenePriority = 'card' | 'nav' | 'hero';
 type Holder = {
   id: number;
   priority: number;
-  revoke: () => void;
+  /** Soft revoke frees the slot without re-queueing (used when stealing). */
+  revoke: (opts?: { requeue?: boolean }) => void;
 };
 
 type Waiter = {
@@ -17,7 +21,8 @@ type Waiter = {
   grant: () => void;
 };
 
-const MAX = 22;
+/** Stay under Chromium’s soft WebGL context limit. */
+const MAX = 8;
 let seq = 1;
 const held = new Map<number, Holder>();
 const queue: Waiter[] = [];
@@ -51,17 +56,19 @@ export function holdWebGLSlot(
 
   const take = () => {
     if (dead || id != null) return;
+    if (held.size >= MAX) return;
     id = seq++;
     held.set(id, {
       id,
       priority: p,
-      revoke: () => {
+      revoke: (opts) => {
         if (id == null) return;
         held.delete(id);
         id = null;
         handlers.onRevoked();
-        // Re-queue ourselves as a waiter so we can come back
-        if (!dead) enqueue();
+        if (dead) return;
+        if (opts?.requeue === false) return;
+        enqueue();
         drain();
       },
     });
@@ -86,14 +93,14 @@ export function holdWebGLSlot(
       take();
       return;
     }
-    // Steal from a lower-priority holder
+    // Steal from a lower-priority holder without overflowing MAX.
     let victim: Holder | null = null;
     for (const h of held.values()) {
       if (h.priority >= p) continue;
       if (!victim || h.priority < victim.priority) victim = h;
     }
     if (victim) {
-      victim.revoke();
+      victim.revoke({ requeue: false });
       take();
       return;
     }

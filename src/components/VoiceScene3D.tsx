@@ -28,6 +28,7 @@ export function VoiceScene3D({
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const handle = useRef<VoiceSceneHandle | null>(null);
+  const releaseRef = useRef<(() => void) | null>(null);
   const accentRef = useRef(accent);
   accentRef.current = accent;
   const shouldLazy = lazy ?? density === 'card';
@@ -35,6 +36,7 @@ export function VoiceScene3D({
     priority ?? (density === 'card' ? 'card' : 'hero');
   const [inView, setInView] = useState(!shouldLazy);
   const [hasSlot, setHasSlot] = useState(false);
+  const [recoverKey, setRecoverKey] = useState(0);
 
   useEffect(() => {
     if (!shouldLazy) return;
@@ -42,7 +44,7 @@ export function VoiceScene3D({
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => setInView(Boolean(entry?.isIntersecting)),
-      { rootMargin: '120px', threshold: 0.01 },
+      { rootMargin: '80px', threshold: 0.01 },
     );
     io.observe(el);
     return () => io.disconnect();
@@ -51,6 +53,8 @@ export function VoiceScene3D({
   useEffect(() => {
     if (!inView) {
       setHasSlot(false);
+      releaseRef.current?.();
+      releaseRef.current = null;
       return;
     }
     const release = holdWebGLSlot(poolPriority, {
@@ -61,31 +65,58 @@ export function VoiceScene3D({
         setHasSlot(false);
       },
     });
+    releaseRef.current = release;
     return () => {
       handle.current?.dispose();
       handle.current = null;
       setHasSlot(false);
+      releaseRef.current = null;
       release();
     };
-  }, [inView, poolPriority]);
+  }, [inView, poolPriority, recoverKey]);
 
   useEffect(() => {
     const el = mountRef.current;
     if (!el || !hasSlot) return;
-    handle.current?.dispose();
-    handle.current = createVoiceScene(el, {
-      accent: accentRef.current,
-      density,
-      variant,
-    });
-    // Tiny chips often lay out after first paint — nudge resize.
+
+    let canvas: HTMLCanvasElement | null = null;
+    try {
+      handle.current?.dispose();
+      handle.current = createVoiceScene(el, {
+        accent: accentRef.current,
+        density,
+        variant,
+      });
+      canvas = el.querySelector('canvas');
+    } catch {
+      handle.current = null;
+      setHasSlot(false);
+      releaseRef.current?.();
+      releaseRef.current = null;
+      window.setTimeout(() => setRecoverKey((k) => k + 1), 900);
+      return;
+    }
+
+    const onLost = (event: Event) => {
+      event.preventDefault();
+      handle.current?.dispose();
+      handle.current = null;
+      setHasSlot(false);
+      releaseRef.current?.();
+      releaseRef.current = null;
+      window.setTimeout(() => setRecoverKey((k) => k + 1), 900);
+    };
+    canvas?.addEventListener('webglcontextlost', onLost, false);
+
     const t1 = window.setTimeout(() => {
       window.dispatchEvent(new Event('resize'));
     }, 40);
     const t2 = window.setTimeout(() => {
       window.dispatchEvent(new Event('resize'));
     }, 160);
+
     return () => {
+      canvas?.removeEventListener('webglcontextlost', onLost, false);
       window.clearTimeout(t1);
       window.clearTimeout(t2);
       handle.current?.dispose();
@@ -106,9 +137,8 @@ export function VoiceScene3D({
       data-variant={variant}
       aria-hidden
     >
-      {!hasSlot ? (
-        <span className="voice-scene-fallback" style={{ '--fb': fallback } as React.CSSProperties} />
-      ) : null}
+      {/* Always under the canvas so dead/lost contexts still look colourful. */}
+      <span className="voice-scene-fallback" style={{ '--fb': fallback } as React.CSSProperties} />
     </div>
   );
 }

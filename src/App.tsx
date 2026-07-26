@@ -17,6 +17,7 @@ import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
 import { NavIcon, type NavIconKind } from './components/NavIcon';
 import { ProfileAvatar } from './components/ProfileAvatar';
 import { ProfileModal } from './components/ProfileModal';
+import { SceneChip } from './components/SceneChip';
 import { VoiceScene3D } from './components/VoiceScene3D';
 import { accentFromSeed, variantFromSeed, type SceneVariant } from './visuals/createVoiceScene';
 import { getSoundArrayBuffer, listSounds, type LibrarySound } from './audio/soundLibrary';
@@ -1043,8 +1044,7 @@ export default function App() {
                         onClick={() => selectPreset(p)}
                       >
                         <span className="dash-voice-3d" aria-hidden>
-                          <VoiceScene3D
-                            density="card"
+                          <SceneChip
                             variant={
                               p.id.includes('robot')
                                 ? 'gear'
@@ -1063,9 +1063,6 @@ export default function App() {
                                             : variantFromSeed(p.id)
                             }
                             accent={p.color}
-                            className="voice-scene-3d card"
-                            lazy
-                            priority="card"
                           />
                         </span>
                         <span>{p.name}</span>
@@ -1097,14 +1094,7 @@ export default function App() {
                             onClick={() => void playDashSound(s)}
                           >
                             <span className="dash-voice-3d" aria-hidden>
-                              <VoiceScene3D
-                                density="card"
-                                variant={variant}
-                                accent={color}
-                                className="voice-scene-3d card"
-                                lazy
-                                priority="card"
-                              />
+                              <SceneChip variant={variant} accent={color} />
                             </span>
                             <span>{dashPlayingId === s.id ? tr('soundsPlaying') : s.name}</span>
                           </button>
