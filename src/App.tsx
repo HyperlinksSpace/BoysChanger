@@ -14,8 +14,9 @@ import { PrehearPanel } from './components/PrehearPanel';
 import { SoundLibraryPanel } from './components/SoundLibraryPanel';
 import { TelegramGuideModal } from './components/TelegramGuideModal';
 import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
+import { NavIcon, type NavIconKind } from './components/NavIcon';
 import { VoiceScene3D } from './components/VoiceScene3D';
-import type { SceneVariant } from './visuals/createVoiceScene';
+import { getSoundArrayBuffer, listSounds, type LibrarySound } from './audio/soundLibrary';
 import {
   applyPayloadToSettings,
   deleteVoicePreset,
@@ -166,6 +167,8 @@ export default function App() {
   const [activePresetId, setActivePresetId] = useState<string | null>('builtin-clean');
   const [saveName, setSaveName] = useState('');
   const [saveBusy, setSaveBusy] = useState(false);
+  const [dashSounds, setDashSounds] = useState<LibrarySound[]>([]);
+  const [dashPlayingId, setDashPlayingId] = useState<string | null>(null);
 
   const tr = useCallback((key: MessageKey, vars?: Record<string, string | number>) => t(locale, key, vars), [locale]);
 
@@ -520,6 +523,13 @@ export default function App() {
     void listVoicePresets().then(setVoicePresets);
   }, []);
 
+  useEffect(() => {
+    if (tab !== 'main') return;
+    void listSounds()
+      .then(setDashSounds)
+      .catch(() => setDashSounds([]));
+  }, [tab]);
+
   const refreshVoicePresets = useCallback(async () => {
     setVoicePresets(await listVoicePresets());
   }, []);
@@ -649,26 +659,36 @@ export default function App() {
   const meterWidth = Math.min(100, Math.round(level * 280));
   const changerOn = Boolean(settings.enabled && engineOn);
   const activePreset = voicePresets.find((p) => p.id === activePresetId) || null;
-  const activeVariant: SceneVariant =
-    activePreset?.id.includes('robot')
-      ? 'gear'
-      : activePreset?.id.includes('radio')
-        ? 'speaker'
-        : activePreset?.id.includes('clean')
-          ? 'mic'
-          : 'orb';
+
+  const playDashSound = async (sound: LibrarySound) => {
+    stopLibrary();
+    setDashPlayingId(null);
+    const ready = engineOn || (await ensureEngineForSounds());
+    if (!ready) {
+      setSystemMsg(tr('soundsNeedEngine'));
+      return;
+    }
+    try {
+      setDashPlayingId(sound.id);
+      const buffer = await getSoundArrayBuffer(sound.id);
+      const duration = await playLibraryBuffer(buffer);
+      window.setTimeout(() => {
+        setDashPlayingId((cur) => (cur === sound.id ? null : cur));
+      }, Math.max(400, duration * 1000 + 80));
+    } catch (e) {
+      setDashPlayingId(null);
+      setSystemMsg(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   const studioPanel = (
     <>
       <div className="active-voice-card">
-        <div className="active-voice-art">
-          <VoiceScene3D
-            density="compact"
-            variant={activeVariant}
-            accent={activePreset?.color || '#d4ff4a'}
-            className="voice-scene-3d compact"
-          />
-        </div>
+        <div
+          className="active-voice-orb"
+          aria-hidden
+          style={{ background: activePreset?.color || '#d4ff4a' }}
+        />
         <div className="active-voice-meta">
           <p className="eyebrow">{tr('studioActive')}</p>
           <h3>{activePreset?.name || tr('studioTitle')}</h3>
@@ -834,17 +854,17 @@ export default function App() {
     <div className="app-shell">
       <aside className="nav-rail" aria-label="Main">
         <div className="nav-logo" title="BoysChanger">
-          <VoiceScene3D density="card" variant="logo" className="voice-scene-3d card" />
+          <NavIcon kind="logo" />
         </div>
         {(
           [
-            ['main', tr('navMain'), 'logo'],
+            ['main', tr('navMain'), 'main'],
             ['voices', tr('navVoices'), 'mic'],
             ['sounds', tr('navSounds'), 'speaker'],
             ['studio', tr('navStudio'), 'flask'],
             ['settings', tr('navSettings'), 'gear'],
           ] as const
-        ).map(([id, label, variant]) => (
+        ).map(([id, label, icon]) => (
           <button
             key={id}
             type="button"
@@ -852,14 +872,8 @@ export default function App() {
             title={label}
             onClick={() => setTab(id)}
           >
-            <span className="nav-icon-3d" aria-hidden>
-              <VoiceScene3D
-                density="card"
-                variant={variant}
-                accent={tab === id ? '#0c1210' : '#d4ff4a'}
-                className="voice-scene-3d card"
-                lazy
-              />
+            <span className="nav-icon-wrap" aria-hidden>
+              <NavIcon kind={icon as NavIconKind} />
             </span>
             <span className="nav-label">{label}</span>
           </button>
@@ -917,43 +931,208 @@ export default function App() {
           <main className="shell-center">
             {tab === 'main' ? (
               <section className="home-hub">
-                <div className="library-hero">
-                  <div className="library-hero-copy">
+                <div className="dash-live">
+                  <div className="dash-live-copy">
                     <h2>{tr('homeTitle')}</h2>
                     <p>{tr('homeLede')}</p>
+                    <div className="dash-live-actions">
+                      <button
+                        type="button"
+                        className={`primary-action ${changerOn ? 'on' : ''}`}
+                        disabled={busy}
+                        onClick={() => void toggleChanger()}
+                      >
+                        {changerOn ? tr('homeChangerOn') : tr('homeChangerOff')}
+                      </button>
+                      <label
+                        className={`dock-monitor dash-monitor ${settings.monitorLocally ? 'on' : ''}`}
+                        title={tr('monitorHint')}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={settings.monitorLocally}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            update('monitorLocally', on);
+                            if (on) {
+                              setSystemMsg(tr('monitorHint'));
+                              if (!engineOn) {
+                                void startEngine(true, { ...settings, monitorLocally: true });
+                              }
+                            }
+                          }}
+                        />
+                        <span>{tr('dockHearMyself')}</span>
+                      </label>
+                    </div>
+                    <div className="dash-meter" aria-hidden>
+                      <div className="meter-fill" style={{ width: `${meterWidth}%` }} />
+                    </div>
+                    <p className="dash-status">{tr(statusKey, statusVars)}</p>
                   </div>
                   <div className="library-hero-art" aria-hidden>
                     <VoiceScene3D density="compact" variant="logo" className="voice-scene-3d compact" />
                   </div>
                 </div>
-                <div className="home-grid">
-                  {(
-                    [
-                      ['voices', tr('navVoices'), tr('homeVoicesDesc'), 'mic'],
-                      ['sounds', tr('navSounds'), tr('homeSoundsDesc'), 'speaker'],
-                      ['studio', tr('navStudio'), tr('homeStudioDesc'), 'flask'],
-                      ['settings', tr('navSettings'), tr('homeSettingsDesc'), 'gear'],
-                    ] as const
-                  ).map(([id, title, desc, variant]) => (
-                    <article key={id} className="home-card">
-                      <div className="home-card-art" aria-hidden>
-                        <VoiceScene3D
-                          density="card"
-                          variant={variant}
-                          className="voice-scene-3d card"
-                          lazy
-                        />
-                      </div>
-                      <div className="home-card-body">
-                        <h3>{title}</h3>
-                        <p>{desc}</p>
-                        <button type="button" className="primary-action" onClick={() => setTab(id)}>
-                          {tr('homeMore')}
+
+                <article className="dash-panel">
+                  <header className="dash-panel-head">
+                    <div>
+                      <h3>{tr('navVoices')}</h3>
+                      <p>{tr('homeVoicesDesc')}</p>
+                    </div>
+                    <button type="button" className="secondary" onClick={() => setTab('voices')}>
+                      {tr('homeMore')}
+                    </button>
+                  </header>
+                  <div className="dash-voice-row">
+                    {voicePresets.slice(0, 10).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`dash-voice-chip ${activePresetId === p.id ? 'active' : ''}`}
+                        style={{ '--card-accent': p.color } as React.CSSProperties}
+                        onClick={() => selectPreset(p)}
+                      >
+                        <span className="dash-voice-dot" aria-hidden />
+                        <span>{p.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="dash-panel">
+                  <header className="dash-panel-head">
+                    <div>
+                      <h3>{tr('navSounds')}</h3>
+                      <p>{tr('homeSoundsDesc')}</p>
+                    </div>
+                    <button type="button" className="secondary" onClick={() => setTab('sounds')}>
+                      {tr('homeMore')}
+                    </button>
+                  </header>
+                  {dashSounds.length === 0 ? (
+                    <p className="hint">{tr('soundsEmpty')}</p>
+                  ) : (
+                    <div className="dash-sound-row">
+                      {dashSounds.slice(0, 8).map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={`dash-sound-chip ${dashPlayingId === s.id ? 'active' : ''}`}
+                          onClick={() => void playDashSound(s)}
+                        >
+                          {dashPlayingId === s.id ? tr('soundsPlaying') : s.name}
                         </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+
+                <article className="dash-panel">
+                  <header className="dash-panel-head">
+                    <div>
+                      <h3>{tr('navStudio')}</h3>
+                      <p>{tr('homeStudioDesc')}</p>
+                    </div>
+                    <button type="button" className="secondary" onClick={() => setTab('studio')}>
+                      {tr('homeMore')}
+                    </button>
+                  </header>
+                  <div className="preset-row dash-studio-row">
+                    <span className="preset-label">{tr('gender')}</span>
+                    <div className="chips">
+                      {GENDERS.map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          className={settings.gender === g ? 'chip active' : 'chip'}
+                          onClick={() => update('gender', g)}
+                        >
+                          {tr(`gender_${g}` as MessageKey)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="preset-row dash-studio-row">
+                    <span className="preset-label">{tr('age')}</span>
+                    <div className="chips">
+                      {AGES.map((a) => (
+                        <button
+                          key={a}
+                          type="button"
+                          className={settings.age === a ? 'chip active' : 'chip'}
+                          onClick={() => update('age', a)}
+                        >
+                          {tr(`age_${a}` as MessageKey)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="effects-grid compact dash-fx">
+                    {FX_IDS.slice(0, 4).map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={settings.effects[id] ? 'fx on' : 'fx'}
+                        onClick={() => toggleEffect(id)}
+                        title={tr(`fx_${id}_desc` as MessageKey)}
+                      >
+                        <strong>{tr(`fx_${id}` as MessageKey)}</strong>
+                      </button>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="dash-panel">
+                  <header className="dash-panel-head">
+                    <div>
+                      <h3>{tr('audioRouting')}</h3>
+                      <p>{tr('homeSettingsDesc')}</p>
+                    </div>
+                    <button type="button" className="secondary" onClick={() => setTab('settings')}>
+                      {tr('homeMore')}
+                    </button>
+                  </header>
+                  <div className="dash-route-grid">
+                    <label>
+                      {tr('inputMic')}
+                      <select
+                        value={settings.inputDeviceId}
+                        onChange={(e) => update('inputDeviceId', e.target.value)}
+                      >
+                        <option value="default">{tr('systemDefault')}</option>
+                        {inputs.map((d) => (
+                          <option key={d.deviceId} value={d.deviceId}>
+                            {d.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      {tr('outputCable')}
+                      <select
+                        value={settings.outputDeviceId}
+                        onChange={(e) => update('outputDeviceId', e.target.value)}
+                      >
+                        <option value="">{tr('defaultSpeakers')}</option>
+                        {outputs.map((d) => (
+                          <option key={d.deviceId} value={d.deviceId}>
+                            {d.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="dash-route-actions">
+                    <button type="button" className="primary-action" onClick={() => setTelegramGuideOpen(true)}>
+                      {tr('telegramGuideBtn')}
+                    </button>
+                    <span className={`dash-cable ${cablePresent ? 'ok' : 'bad'}`}>
+                      {cablePresent ? tr('telegramCableOk') : tr('cableStatusMissing')}
+                    </span>
+                  </div>
+                </article>
               </section>
             ) : null}
 
@@ -1131,12 +1310,7 @@ export default function App() {
           disabled={busy}
           onClick={() => void toggleChanger()}
         >
-          <VoiceScene3D
-            density="card"
-            variant="mic"
-            accent={changerOn ? '#0c1210' : '#d4ff4a'}
-            className="voice-scene-3d card"
-          />
+          <NavIcon kind="mic" />
         </button>
         <label className={`dock-monitor ${settings.monitorLocally ? 'on' : ''}`} title={tr('monitorHint')}>
           <input

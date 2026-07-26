@@ -51,7 +51,11 @@ export class VoiceEngine {
   private effectsDry: GainNode | null = null;
   private masterGain: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
+  /** Hear-myself: 1s delayed tap so speakers don't form an instant feedback loop. */
+  private monitorDelay: DelayNode | null = null;
+  private monitorFilter: BiquadFilterNode | null = null;
   private monitorGain: GainNode | null = null;
+  static readonly MONITOR_DELAY_SEC = 1;
   private destination: MediaStreamAudioDestinationNode | null = null;
   private outElement: HTMLAudioElement | null = null;
   private ring: RingBuffer | null = null;
@@ -240,6 +244,13 @@ export class VoiceEngine {
     this.effectsDry = this.ctx.createGain();
     this.effectsWet = this.ctx.createGain();
     this.masterGain = this.ctx.createGain();
+    // Max delay must be set at construction time (Web Audio).
+    this.monitorDelay = this.ctx.createDelay(1.5);
+    this.monitorDelay.delayTime.value = VoiceEngine.MONITOR_DELAY_SEC;
+    this.monitorFilter = this.ctx.createBiquadFilter();
+    this.monitorFilter.type = 'highpass';
+    this.monitorFilter.frequency.value = 160;
+    this.monitorFilter.Q.value = 0.7;
     this.monitorGain = this.ctx.createGain();
     this.monitorGain.gain.value = 0;
 
@@ -336,8 +347,11 @@ export class VoiceEngine {
     this.outElement.muted = true;
     this.outElement.srcObject = this.destination.stream;
 
-    // Hear-myself: tap processed audio to default speakers/headphones
-    this.masterGain.connect(this.monitorGain);
+    // Hear-myself: processed voice → 1s delay → HPF → local speakers/headphones.
+    // Delay breaks instant acoustic feedback; HPF softens boom that drives loops.
+    this.masterGain.connect(this.monitorDelay);
+    this.monitorDelay.connect(this.monitorFilter);
+    this.monitorFilter.connect(this.monitorGain);
     this.monitorGain.connect(this.ctx.destination);
 
     // Sound library + prehear: both local speakers AND virtual-cable stream (Telegram mic)
@@ -642,11 +656,15 @@ export class VoiceEngine {
     });
 
     const hasVirtualOut = Boolean(settings.outputDeviceId);
-    // Hear-myself plays processed voice on the default device (use headphones).
+    // Hear-myself: delayed processed voice on default device (headphones best).
     // Virtual cable is independent (outElement / setSinkId).
     const monitorOn = Boolean(settings.monitorLocally);
+    if (this.monitorDelay) {
+      this.monitorDelay.delayTime.setTargetAtTime(VoiceEngine.MONITOR_DELAY_SEC, t, 0.05);
+    }
     if (this.monitorGain) {
-      this.monitorGain.gain.setTargetAtTime(monitorOn ? 1 : 0, t, 0.03);
+      // Slightly under unity so delayed playback is less likely to re-excite the mic.
+      this.monitorGain.gain.setTargetAtTime(monitorOn ? 0.82 : 0, t, 0.04);
     }
     if (settings.monitorLocally && !hasVirtualOut) {
       this.log('warn', 'monitor on without virtual cable — use headphones to avoid feedback');
@@ -1093,6 +1111,9 @@ export class VoiceEngine {
     this.prehearBuffer = null;
     this.prehearGain = null;
     this.pitchNode = null;
+    this.monitorDelay = null;
+    this.monitorFilter = null;
+    this.monitorGain = null;
     this.formantBands = [];
     this.formantLow = null;
     this.formantMid = null;

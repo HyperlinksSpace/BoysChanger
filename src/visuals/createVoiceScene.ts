@@ -320,7 +320,6 @@ export function createVoiceScene(
       ro?.disconnect();
       io?.disconnect();
       window.removeEventListener('resize', resize);
-      renderer.dispose();
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
         if (mesh.geometry) mesh.geometry.dispose();
@@ -328,6 +327,12 @@ export function createVoiceScene(
         if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
         else mat?.dispose();
       });
+      try {
+        renderer.forceContextLoss();
+      } catch {
+        /* */
+      }
+      renderer.dispose();
       if (renderer.domElement.parentElement === container) {
         container.removeChild(renderer.domElement);
       }

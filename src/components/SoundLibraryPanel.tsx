@@ -6,7 +6,6 @@ import {
   removeSound,
   type LibrarySound,
 } from '../audio/soundLibrary';
-import { VoiceScene3D } from './VoiceScene3D';
 import { accentFromSeed } from '../visuals/createVoiceScene';
 
 type Props = {
@@ -112,8 +111,12 @@ export function SoundLibraryPanel({
           <h2>{labels.title}</h2>
           <p className="hint">{labels.hint}</p>
         </div>
-        <div className="library-hero-art" aria-hidden>
-          <VoiceScene3D density="compact" variant="speaker" className="voice-scene-3d compact" />
+        <div
+          className="library-hero-mark"
+          aria-hidden
+          style={{ '--mark': '#d4ff4a' } as React.CSSProperties}
+        >
+          <span className="mark-orb speaker" />
         </div>
       </div>
       <div className="sound-actions">
@@ -141,15 +144,11 @@ export function SoundLibraryPanel({
             return (
               <div key={s.id} className={`sound-chip ${activeId === s.id ? 'active' : ''}`}>
                 <button type="button" className="sound-play" onClick={() => void play(s)}>
-                  <span className="sound-3d" aria-hidden>
-                    <VoiceScene3D
-                      density="card"
-                      variant={s.source === 'user' ? 'wave' : 'speaker'}
-                      accent={color}
-                      className="voice-scene-3d card"
-                      lazy
-                    />
-                  </span>
+                  <span
+                    className="sound-orb"
+                    aria-hidden
+                    style={{ background: color } as React.CSSProperties}
+                  />
                   <span className="sound-meta">
                     <strong>{s.name}</strong>
                     <span>
