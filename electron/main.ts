@@ -41,6 +41,13 @@ if (process.platform === 'win32') {
   app.setAppUserModelId(APP_USER_MODEL_ID);
 }
 
+// Prevent stacked tray icons: closing the window hides to tray, so a second
+// launch would otherwise start another process with another notification icon.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged
   ? process.env.DIST
@@ -102,6 +109,16 @@ function resolveTrayIconPath(on: boolean) {
   );
 }
 
+function destroyTray() {
+  if (!tray) return;
+  try {
+    if (!tray.isDestroyed()) tray.destroy();
+  } catch {
+    /* */
+  }
+  tray = null;
+}
+
 function updateTrayIcon() {
   if (!tray || tray.isDestroyed()) return;
   const trayPath = resolveTrayIconPath(changerActive);
@@ -115,7 +132,7 @@ function updateTrayIcon() {
 
 function showMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
-    createWindow();
+    if (app.isReady()) createWindow();
     return;
   }
   if (mainWindow.isMinimized()) mainWindow.restore();
@@ -154,7 +171,8 @@ function rebuildTrayMenu() {
 }
 
 function createTray() {
-  if (tray && !tray.isDestroyed()) return;
+  // Always rebuild from a clean slate (dev reloads / partial quit can leave ghosts).
+  destroyTray();
   const trayPath = resolveTrayIconPath(false);
   const fallback = resolveIconPath();
   const src = trayPath || fallback;
@@ -637,26 +655,33 @@ function detectVirtualCableHints(): string[] {
   return [];
 }
 
-app.whenReady().then(async () => {
-  initLogger();
-  await ensureMicPermission();
-  createWindow();
-  createTray();
-  applyChangerStatus(false);
-  setupAutoUpdater();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    else showMainWindow();
+if (gotSingleInstanceLock) {
+  app.on('second-instance', () => {
+    showMainWindow();
   });
-});
+
+  app.whenReady().then(async () => {
+    initLogger();
+    await ensureMicPermission();
+    createWindow();
+    createTray();
+    applyChangerStatus(false);
+    setupAutoUpdater();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      else showMainWindow();
+    });
+  });
+}
 
 app.on('before-quit', () => {
   isQuitting = true;
-  if (tray && !tray.isDestroyed()) {
-    tray.destroy();
-    tray = null;
-  }
+  destroyTray();
+});
+
+app.on('will-quit', () => {
+  destroyTray();
 });
 
 app.on('window-all-closed', () => {
