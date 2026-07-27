@@ -3,8 +3,8 @@
   --bg1: #12201b;
   --ink: #e8f2ec;
   --muted: #93a89c;
-  --accent: #d4ff4a;
-  --accent-dim: #9fc22a;
+  --accent: #8dff6a;
+  --accent-dim: #4ecf6a;
   --line: rgba(232, 242, 236, 0.12);
   --panel: rgba(18, 32, 27, 0.94);
   --font-display: 'Inter', system-ui, sans-serif;
@@ -33,7 +33,7 @@ body,
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(700px 320px at 8% -10%, rgba(212, 255, 74, 0.16), transparent 55%),
+    radial-gradient(700px 320px at 8% -10%, rgba(141, 255, 106, 0.16), transparent 55%),
     radial-gradient(520px 280px at 100% 0%, rgba(255, 122, 69, 0.1), transparent 50%),
     linear-gradient(160deg, var(--bg0), var(--bg1) 50%, #0e1814);
 }
@@ -44,7 +44,7 @@ body,
   inset: auto -20% -30% auto;
   width: 60%;
   height: 60%;
-  background: radial-gradient(circle, rgba(212, 255, 74, 0.08), transparent 70%);
+  background: radial-gradient(circle, rgba(141, 255, 106, 0.08), transparent 70%);
 }
 
 .setup-top {

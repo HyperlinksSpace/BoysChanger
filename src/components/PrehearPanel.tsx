@@ -65,9 +65,9 @@ export function PrehearPanel({
       const t = (i / n) * duration;
       const played = state.playing || state.paused ? t < state.position : false;
       if (played) {
-        ctx.fillStyle = spoken ? 'rgba(212,255,74,0.95)' : 'rgba(212,255,74,0.35)';
+        ctx.fillStyle = spoken ? 'rgba(141,255,106,0.95)' : 'rgba(141,255,106,0.35)';
       } else {
-        ctx.fillStyle = spoken ? 'rgba(212,255,74,0.55)' : 'rgba(147,168,156,0.22)';
+        ctx.fillStyle = spoken ? 'rgba(141,255,106,0.55)' : 'rgba(147,168,156,0.22)';
       }
       ctx.fillRect(x, mid - barH / 2, barW, barH);
     }
@@ -84,7 +84,7 @@ export function PrehearPanel({
     }
 
     const fill = Math.min(1, state.seconds / PREHEAR_SECONDS);
-    ctx.fillStyle = 'rgba(212,255,74,0.12)';
+    ctx.fillStyle = 'rgba(141,255,106,0.12)';
     ctx.fillRect(0, h - 3, w * fill, 3);
   }, [state]);
 

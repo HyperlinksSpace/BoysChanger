@@ -128,7 +128,7 @@ export function VoiceScene3D({
     if (accent) handle.current?.setAccent(accent);
   }, [accent]);
 
-  const fallback = accent || '#d4ff4a';
+  const fallback = accent || '#8dff6a';
 
   return (
     <div

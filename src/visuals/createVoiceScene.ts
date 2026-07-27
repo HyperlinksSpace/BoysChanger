@@ -60,7 +60,7 @@ export function createVoiceScene(
   container: HTMLElement,
   options: VoiceSceneOptions = {},
 ): VoiceSceneHandle {
-  const accent = new THREE.Color(options.accent || '#d4ff4a');
+  const accent = new THREE.Color(options.accent || '#8dff6a');
   const density = options.density || 'full';
   const variant = options.variant || 'mic';
   const card = density === 'card';

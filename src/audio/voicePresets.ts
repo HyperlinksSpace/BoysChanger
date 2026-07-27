@@ -31,7 +31,7 @@ export type VoicePreset = {
   payload: VoicePresetPayload;
 };
 
-const COLORS = ['#d4ff4a', '#5ce1ff', '#ff7a45', '#ff5cad', '#b388ff', '#ffd166', '#3ddc84', '#ff6b6b'];
+const COLORS = ['#8dff6a', '#5ce1ff', '#ff7a45', '#ff5cad', '#b388ff', '#ffd166', '#3ddc84', '#ff6b6b'];
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -169,7 +169,7 @@ export const BUILTIN_VOICES: VoicePreset[] = [
   {
     id: 'builtin-robot',
     name: 'Robot',
-    color: '#d4ff4a',
+    color: '#8dff6a',
     emoji: '🤖',
     source: 'builtin',
     createdAt: 0,

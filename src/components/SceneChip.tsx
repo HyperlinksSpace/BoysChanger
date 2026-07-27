@@ -8,7 +8,7 @@ type Props = {
 };
 
 /** Colorful CSS/SVG chip — no WebGL, safe for dense lists. */
-export function SceneChip({ variant = 'mic', accent = '#d4ff4a', className }: Props) {
+export function SceneChip({ variant = 'mic', accent = '#8dff6a', className }: Props) {
   return (
     <span
       className={className || 'scene-chip'}

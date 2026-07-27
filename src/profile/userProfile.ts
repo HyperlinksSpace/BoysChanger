@@ -40,7 +40,7 @@ export const SKIN_OPTIONS: { id: SkinId; label: string; color: string }[] = [
   { id: 'warm', label: 'Warm', color: '#d08b5a' },
   { id: 'deep', label: 'Deep', color: '#8d5524' },
   { id: 'cool', label: 'Cool', color: '#c9b8a8' },
-  { id: 'lime', label: 'Lime', color: '#d4ff4a' },
+  { id: 'lime', label: 'Lime', color: '#8dff6a' },
   { id: 'pink', label: 'Pink', color: '#ff5cad' },
   { id: 'cyan', label: 'Cyan', color: '#5ce1ff' },
   { id: 'void', label: 'Void', color: '#2a3340' },
@@ -50,7 +50,7 @@ export const HAIR_OPTIONS: { id: HairId; label: string; color: string }[] = [
   { id: 'none', label: 'None', color: 'transparent' },
   { id: 'short', label: 'Short', color: '#1a1a1a' },
   { id: 'wavy', label: 'Wavy', color: '#6b3fa0' },
-  { id: 'spike', label: 'Spike', color: '#d4ff4a' },
+  { id: 'spike', label: 'Spike', color: '#8dff6a' },
   { id: 'bun', label: 'Bun', color: '#ff7a45' },
   { id: 'cap', label: 'Cap', color: '#5ce1ff' },
 ];

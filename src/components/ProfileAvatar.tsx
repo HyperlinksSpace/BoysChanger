@@ -14,7 +14,7 @@ type Props = {
 };
 
 function skinColor(id: ComposedAvatar['skin']) {
-  return SKIN_OPTIONS.find((s) => s.id === id)?.color || '#d4ff4a';
+  return SKIN_OPTIONS.find((s) => s.id === id)?.color || '#8dff6a';
 }
 
 function hairColor(id: ComposedAvatar['hair']) {
@@ -79,8 +79,8 @@ function ComposedSvg({ avatar }: { avatar: ComposedAvatar }) {
         <>
           <ellipse cx="25" cy="34" rx="3.4" ry="4.2" fill="#111" />
           <ellipse cx="39" cy="34" rx="3.4" ry="4.2" fill="#111" />
-          <rect x="24.2" y="31.5" width="1.6" height="5" rx="0.6" fill="#d4ff4a" />
-          <rect x="38.2" y="31.5" width="1.6" height="5" rx="0.6" fill="#d4ff4a" />
+          <rect x="24.2" y="31.5" width="1.6" height="5" rx="0.6" fill="#8dff6a" />
+          <rect x="38.2" y="31.5" width="1.6" height="5" rx="0.6" fill="#8dff6a" />
         </>
       ) : null}
       {avatar.eyes === 'star' ? (
@@ -114,9 +114,9 @@ function ComposedSvg({ avatar }: { avatar: ComposedAvatar }) {
 
       {avatar.accessory === 'headset' ? (
         <>
-          <path d="M14 28c0-12 36-12 36 0" fill="none" stroke="#d4ff4a" strokeWidth="3" />
-          <rect x="10" y="28" width="7" height="12" rx="3" fill="#d4ff4a" />
-          <rect x="47" y="28" width="7" height="12" rx="3" fill="#d4ff4a" />
+          <path d="M14 28c0-12 36-12 36 0" fill="none" stroke="#8dff6a" strokeWidth="3" />
+          <rect x="10" y="28" width="7" height="12" rx="3" fill="#8dff6a" />
+          <rect x="47" y="28" width="7" height="12" rx="3" fill="#8dff6a" />
         </>
       ) : null}
       {avatar.accessory === 'earring' ? (

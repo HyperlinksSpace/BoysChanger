@@ -66,7 +66,7 @@ export function VoiceLibraryPanel({
           <VoiceScene3D
             density="compact"
             variant="mic"
-            accent="#d4ff4a"
+            accent="#8dff6a"
             className="voice-scene-3d compact"
             priority="hero"
           />

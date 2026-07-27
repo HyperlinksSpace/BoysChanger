@@ -21,8 +21,8 @@ type Waiter = {
   grant: () => void;
 };
 
-/** Stay under Chromium’s soft WebGL context limit. */
-const MAX = 8;
+/** Stay under Chromium’s soft WebGL context limit (nav+avatar+hero+dock). */
+const MAX = 10;
 let seq = 1;
 const held = new Map<number, Holder>();
 const queue: Waiter[] = [];

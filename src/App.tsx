@@ -14,10 +14,10 @@ import { PrehearPanel } from './components/PrehearPanel';
 import { SoundLibraryPanel } from './components/SoundLibraryPanel';
 import { TelegramGuideModal } from './components/TelegramGuideModal';
 import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
-import { NavIcon, type NavIconKind } from './components/NavIcon';
 import { ProfileAvatar } from './components/ProfileAvatar';
 import { ProfileModal } from './components/ProfileModal';
 import { SceneChip } from './components/SceneChip';
+import { VoiceReactionPicker } from './components/VoiceReactionPicker';
 import { VoiceScene3D } from './components/VoiceScene3D';
 import { accentFromSeed, variantFromSeed, type SceneVariant } from './visuals/createVoiceScene';
 import { getSoundArrayBuffer, listSounds, type LibrarySound } from './audio/soundLibrary';
@@ -28,7 +28,7 @@ import {
   saveVoicePreset,
   type VoicePreset,
 } from './audio/voicePresets';
-import { DEFAULT_PROFILE, loadUserProfile, type UserProfile } from './profile/userProfile';
+import { DEFAULT_PROFILE, loadUserProfile, SKIN_OPTIONS, type UserProfile } from './profile/userProfile';
 import { LOCALES, detectLocale, t, type Locale, type MessageKey } from './i18n';
 import './styles.css';
 
@@ -176,6 +176,7 @@ export default function App() {
   const [dashPlayingId, setDashPlayingId] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [voicePicker, setVoicePicker] = useState<{ x: number; y: number } | null>(null);
 
   const tr = useCallback((key: MessageKey, vars?: Record<string, string | number>) => t(locale, key, vars), [locale]);
 
@@ -688,13 +689,45 @@ export default function App() {
                   : variantFromSeed(activePreset.id)
     : 'logo';
 
-  const navIcon = (id: AppTab): NavIconKind => {
-    if (id === 'main') return 'main';
+  const navSceneVariant = (id: AppTab): SceneVariant => {
+    if (id === 'main') return 'logo';
     if (id === 'voices') return 'mic';
     if (id === 'sounds') return 'speaker';
     if (id === 'studio') return 'flask';
     return 'gear';
   };
+
+  const profileAccent = (() => {
+    const av = profile.avatar;
+    if (av.mode === 'compose') {
+      return SKIN_OPTIONS.find((s) => s.id === av.skin)?.color || '#8dff6a';
+    }
+    return '#8dff6a';
+  })();
+
+  const prehearPanel = (
+    <PrehearPanel
+      state={prehear}
+      engineRunning={engineOn}
+      labels={{
+        title: tr('prehear'),
+        hint: systemMsg || tr('prehearHint'),
+        seekHint: tr('prehearSeekHint'),
+        play: tr('prehearPlay'),
+        pause: tr('prehearPause'),
+        needEngine: tr('prehearNeedEngine'),
+        empty: tr('prehearEmpty'),
+      }}
+      onPlay={() => {
+        engineRef.current.preparePrehear();
+        engineRef.current.playPrehear();
+      }}
+      onPause={() => engineRef.current.pausePrehear()}
+      onSeek={(seconds) => {
+        engineRef.current.seekPrehear(seconds);
+      }}
+    />
+  );
 
   const playDashSound = async (sound: LibrarySound) => {
     stopLibrary();
@@ -720,11 +753,26 @@ export default function App() {
   const studioPanel = (
     <>
       <div className="active-voice-card">
-        <div className="active-voice-art">
+        <div
+          className="active-voice-art"
+          role="button"
+          tabIndex={0}
+          title={tr('studioPickVoice')}
+          onClick={(e) => {
+            setVoicePicker({ x: e.clientX, y: e.clientY });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setVoicePicker({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+            }
+          }}
+        >
           <VoiceScene3D
             density="compact"
             variant={activeVariant}
-            accent={activePreset?.color || '#d4ff4a'}
+            accent={activePreset?.color || '#8dff6a'}
             className="voice-scene-3d compact"
             priority="hero"
           />
@@ -866,42 +914,40 @@ export default function App() {
         </button>
       </div>
 
-      <PrehearPanel
-        state={prehear}
-        engineRunning={engineOn}
-        labels={{
-          title: tr('prehear'),
-          hint: systemMsg || tr('prehearHint'),
-          seekHint: tr('prehearSeekHint'),
-          play: tr('prehearPlay'),
-          pause: tr('prehearPause'),
-          needEngine: tr('prehearNeedEngine'),
-          empty: tr('prehearEmpty'),
-        }}
-        onPlay={() => {
-          engineRef.current.preparePrehear();
-          engineRef.current.playPrehear();
-        }}
-        onPause={() => engineRef.current.pausePrehear()}
-        onSeek={(seconds) => {
-          engineRef.current.seekPrehear(seconds);
-        }}
-      />
+      {prehearPanel}
     </>
   );
 
   return (
     <div className="app-shell">
       <aside className="nav-rail" aria-label="Main">
-        <button
-          type="button"
-          className="nav-logo"
-          title={profile.displayName || tr('profileOpen')}
-          aria-label={tr('profileOpen')}
-          onClick={() => setProfileOpen(true)}
-        >
-          <ProfileAvatar avatar={profile.avatar} className="profile-avatar nav" />
-        </button>
+        <div className="nav-profile">
+          <button
+            type="button"
+            className="nav-logo"
+            title={profile.displayName || tr('profileOpen')}
+            aria-label={tr('profileOpen')}
+            onClick={() => setProfileOpen(true)}
+          >
+            {profile.avatar.mode === 'upload' && profile.avatar.previewUrl ? (
+              <ProfileAvatar avatar={profile.avatar} className="profile-avatar nav" />
+            ) : (
+              <VoiceScene3D
+                density="card"
+                variant="logo"
+                accent={profileAccent}
+                className="voice-scene-3d card"
+                lazy={false}
+                priority="nav"
+              />
+            )}
+          </button>
+          {profile.displayName.trim() ? (
+            <span className="nav-profile-name" title={profile.displayName}>
+              {profile.displayName.trim()}
+            </span>
+          ) : null}
+        </div>
         {(
           [
             ['main', tr('navMain')],
@@ -918,8 +964,15 @@ export default function App() {
             title={label}
             onClick={() => setTab(id)}
           >
-            <span className="nav-icon-wrap" aria-hidden>
-              <NavIcon kind={navIcon(id)} />
+            <span className="nav-icon-3d" aria-hidden>
+              <VoiceScene3D
+                density="card"
+                variant={navSceneVariant(id)}
+                accent={tab === id ? '#0c1210' : '#8dff6a'}
+                className="voice-scene-3d card"
+                lazy={false}
+                priority="nav"
+              />
             </span>
             <span className="nav-label">{label}</span>
           </button>
@@ -1020,7 +1073,7 @@ export default function App() {
                     <VoiceScene3D
                       density="compact"
                       variant="logo"
-                      accent="#d4ff4a"
+                      accent="#8dff6a"
                       className="voice-scene-3d compact"
                       priority="hero"
                     />
@@ -1069,6 +1122,16 @@ export default function App() {
                       </button>
                     ))}
                   </div>
+                </article>
+
+                <article className="dash-panel">
+                  <header className="dash-panel-head">
+                    <div>
+                      <h3>{tr('prehear')}</h3>
+                      <p>{tr('prehearHint')}</p>
+                    </div>
+                  </header>
+                  {prehearPanel}
                 </article>
 
                 <article className="dash-panel">
@@ -1382,7 +1445,7 @@ export default function App() {
           <VoiceScene3D
             density="card"
             variant="mic"
-            accent={changerOn ? '#0c1210' : '#d4ff4a'}
+            accent={changerOn ? '#0c1210' : '#8dff6a'}
             className="voice-scene-3d card"
             lazy={false}
             priority="nav"
@@ -1445,6 +1508,19 @@ export default function App() {
         profile={profile}
         onSaved={setProfile}
         tr={tr}
+      />
+
+      <VoiceReactionPicker
+        open={Boolean(voicePicker)}
+        x={voicePicker?.x ?? 0}
+        y={voicePicker?.y ?? 0}
+        presets={voicePresets}
+        activeId={activePresetId}
+        onPick={(preset) => {
+          selectPreset(preset);
+          setVoicePicker(null);
+        }}
+        onClose={() => setVoicePicker(null)}
       />
     </div>
   );
