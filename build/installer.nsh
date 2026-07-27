@@ -22,15 +22,28 @@
 !macroend
 
 !macro customInstall
-  ; Quiet VB-CABLE — no MessageBox; reboot is offered on the finish page
-  IfFileExists "$INSTDIR\resources\vbcable\VBCABLE_Setup_x64.exe" 0 vbcable_skip
-    DetailPrint "Installing VB-CABLE virtual audio driver…"
-    ExecWait '"$INSTDIR\resources\vbcable\VBCABLE_Setup_x64.exe" -i -h' $0
-    DetailPrint "VB-CABLE setup finished (code $0)"
-  vbcable_skip:
+  ; Detect electron-updater / --updated so auto-update does not demand a reboot
+  ; or reinstall VB-CABLE (that left the app closed with no relaunch).
+  StrCpy $0 ""
+  ${GetParameters} $R0
+  ClearErrors
+  ${GetOptions} $R0 "--updated" $R1
+  IfErrors boys_fresh_install boys_auto_update
 
-  ; Always offer reboot on finish — the virtual mic only appears after Windows reloads drivers
-  SetRebootFlag true
+  boys_auto_update:
+    DetailPrint "Auto-update install — skipping VB-CABLE and reboot flag"
+    Goto boys_install_done
+
+  boys_fresh_install:
+    IfFileExists "$INSTDIR\resources\vbcable\VBCABLE_Setup_x64.exe" 0 vbcable_skip
+      DetailPrint "Installing VB-CABLE virtual audio driver…"
+      ExecWait '"$INSTDIR\resources\vbcable\VBCABLE_Setup_x64.exe" -i -h' $0
+      DetailPrint "VB-CABLE setup finished (code $0)"
+    vbcable_skip:
+    ; First-time setup only — reboot activates the virtual mic driver
+    SetRebootFlag true
+
+  boys_install_done:
 !macroend
 
 !macro customInstallMode

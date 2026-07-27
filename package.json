@@ -144,7 +144,7 @@
       "include": "build/installer.nsh",
       "perMachine": true,
       "allowElevation": true,
-      "runAfterFinish": false,
+      "runAfterFinish": true,
       "deleteAppDataOnUninstall": false
     }
   },

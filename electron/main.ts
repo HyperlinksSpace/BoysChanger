@@ -511,17 +511,43 @@ function applyDownloadedUpdate(reason: string) {
     reason,
     version: downloadedUpdateVersion,
     silent: true,
+    forceRunAfter: true,
   });
-  // Silent + force relaunch: avoids interactive NSIS and a dead closed window.
-  setTimeout(() => {
+  // setImmediate: let IPC/status flush before the process tears down.
+  // Silent + force-run: NSIS must have runAfterFinish enabled and must NOT
+  // SetRebootFlag on --updated installs (see build/installer.nsh).
+  setImmediate(() => {
     try {
       autoUpdater.quitAndInstall(true, true);
     } catch (err) {
       logError('updater', 'quitAndInstall failed', { err: String(err) });
       sendUpdateStatus('error', downloadedUpdateVersion, String(err));
+      // Last resort: open the pending installer UI so the user is not stuck.
+      void openPendingInstallerFallback();
     }
-  }, 500);
+  });
   return { ok: true as const, version: downloadedUpdateVersion };
+}
+
+async function openPendingInstallerFallback() {
+  try {
+    const pendingDir = path.join(app.getPath('localAppData'), 'boyschanger-updater', 'pending');
+    const infoPath = path.join(pendingDir, 'update-info.json');
+    if (!fs.existsSync(infoPath)) {
+      logWarn('updater', 'no update-info.json for fallback');
+      return;
+    }
+    const info = JSON.parse(fs.readFileSync(infoPath, 'utf8')) as { fileName?: string };
+    const exe = info.fileName ? path.join(pendingDir, info.fileName) : '';
+    if (!exe || !fs.existsSync(exe)) {
+      logWarn('updater', 'pending installer missing', { exe });
+      return;
+    }
+    logInfo('updater', 'opening pending installer fallback', { exe });
+    await shell.openPath(exe);
+  } catch (err) {
+    logError('updater', 'fallback installer open failed', { err: String(err) });
+  }
 }
 
 function setupAutoUpdater() {
