@@ -15,7 +15,7 @@ export type CableInstallResult = {
   message: string;
 };
 export type UpdateStatusPayload = {
-  status: 'checking' | 'available' | 'not-available' | 'downloaded' | 'error';
+  status: 'checking' | 'available' | 'not-available' | 'downloaded' | 'applying' | 'error';
   version?: string;
   message?: string;
 };
@@ -34,8 +34,14 @@ const api = {
   openSoundInputSettings: (): Promise<SystemInputResult> =>
     ipcRenderer.invoke('open-sound-input-settings'),
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('open-external', url),
-  checkForUpdates: (): Promise<{ ok: boolean; version?: string; message?: string }> =>
-    ipcRenderer.invoke('check-for-updates'),
+  checkForUpdates: (
+    opts?: { manual?: boolean },
+  ): Promise<{ ok: boolean; version?: string; message?: string }> =>
+    ipcRenderer.invoke('check-for-updates', opts ?? {}),
+  applyUpdate: (): Promise<{ ok: boolean; version?: string; message?: string }> =>
+    ipcRenderer.invoke('apply-update'),
+  updateReady: (): Promise<{ ready: boolean; version?: string }> =>
+    ipcRenderer.invoke('update-ready'),
   setChangerStatus: (on: boolean): Promise<{ ok: boolean; on: boolean }> =>
     ipcRenderer.invoke('set-changer-status', on),
   onTrayToggleChanger: (cb: () => void): (() => void) => {

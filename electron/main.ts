@@ -59,6 +59,14 @@ let changerActive = false;
 let isQuitting = false;
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let updateCheckInFlight = false;
+/** True after installer package is on disk and ready to apply. */
+let updateDownloadedReady = false;
+let downloadedUpdateVersion: string | undefined;
+/**
+ * When true, finish install + relaunch as soon as the download completes
+ * (manual “Check for updates”). Background checks leave the app running.
+ */
+let installWhenDownloaded = false;
 let lastUpdateCheckAt = 0;
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
@@ -401,8 +409,15 @@ function configureGenericReleaseFeed(tag: string) {
 async function checkForUpdatesResilient(reason: string, manual = false) {
   if (!app.isPackaged) return { ok: false as const, message: 'dev' };
   if (updateCheckInFlight) return { ok: false as const, message: 'busy' };
+
+  // Manual click while an update is already downloaded → apply it now.
+  if (manual && updateDownloadedReady) {
+    return applyDownloadedUpdate('manual-button');
+  }
+
   updateCheckInFlight = true;
   lastUpdateCheckAt = Date.now();
+  if (manual) installWhenDownloaded = true;
 
   const send = (status: string, version?: string, message?: string) => {
     logInfo('updater', status, { version, message, reason, manual });
@@ -438,6 +453,7 @@ async function checkForUpdatesResilient(reason: string, manual = false) {
     const local = app.getVersion();
     const remote = latest.tag.replace(/^v/i, '');
     if (!isNewerVersion(remote, local)) {
+      installWhenDownloaded = false;
       send('not-available', local);
       return { ok: true as const, version: local };
     }
@@ -451,6 +467,7 @@ async function checkForUpdatesResilient(reason: string, manual = false) {
         remote,
         err: String(err),
       });
+      installWhenDownloaded = false;
       // Soft success: tell UI an update exists and open releases if manual
       send('available', remote, 'open');
       if (manual) {
@@ -467,6 +484,7 @@ async function checkForUpdatesResilient(reason: string, manual = false) {
     const msg = err instanceof Error ? err.message : String(err);
     const soft = isTransientNetworkError(lastErr) || isTransientNetworkError(err);
     logError('updater', 'check failed', { err: msg, soft, reason, manual });
+    if (manual) installWhenDownloaded = false;
     // Background polls: don't scare the UI with raw Chromium net errors
     if (manual || !soft) {
       send('error', undefined, soft ? 'network' : msg);
@@ -477,6 +495,33 @@ async function checkForUpdatesResilient(reason: string, manual = false) {
   } finally {
     updateCheckInFlight = false;
   }
+}
+
+function sendUpdateStatus(status: string, version?: string, message?: string) {
+  logInfo('updater', status, { version, message });
+  mainWindow?.webContents.send('update-status', { status, version, message });
+}
+
+function applyDownloadedUpdate(reason: string) {
+  if (!updateDownloadedReady) {
+    return { ok: false as const, message: 'none' };
+  }
+  sendUpdateStatus('applying', downloadedUpdateVersion);
+  logInfo('updater', 'quitAndInstall', {
+    reason,
+    version: downloadedUpdateVersion,
+    silent: true,
+  });
+  // Silent + force relaunch: avoids interactive NSIS and a dead closed window.
+  setTimeout(() => {
+    try {
+      autoUpdater.quitAndInstall(true, true);
+    } catch (err) {
+      logError('updater', 'quitAndInstall failed', { err: String(err) });
+      sendUpdateStatus('error', downloadedUpdateVersion, String(err));
+    }
+  }, 500);
+  return { ok: true as const, version: downloadedUpdateVersion };
 }
 
 function setupAutoUpdater() {
@@ -491,35 +536,35 @@ function setupAutoUpdater() {
   autoUpdater.allowDowngrade = false;
   configureGithubFeed();
 
-  const send = (status: string, version?: string, message?: string) => {
-    logInfo('updater', status, { version, message });
-    mainWindow?.webContents.send('update-status', { status, version, message });
-  };
-
-  autoUpdater.on('checking-for-update', () => send('checking'));
-  autoUpdater.on('update-available', (info) => send('available', info.version));
-  autoUpdater.on('update-not-available', (info) =>
-    send('not-available', info?.version ?? app.getVersion()),
-  );
+  autoUpdater.on('checking-for-update', () => sendUpdateStatus('checking'));
+  autoUpdater.on('update-available', (info) => sendUpdateStatus('available', info.version));
+  autoUpdater.on('update-not-available', (info) => {
+    installWhenDownloaded = false;
+    sendUpdateStatus('not-available', info?.version ?? app.getVersion());
+  });
   autoUpdater.on('error', (err) => {
     const msg = err?.message ? String(err.message) : String(err);
     logError('updater', msg);
     // Avoid duplicate noisy UI if resilient check already reported it
     if (isTransientNetworkError(err)) {
-      send('error', undefined, 'network-soft');
+      sendUpdateStatus('error', undefined, 'network-soft');
     } else {
-      send('error', undefined, msg);
+      sendUpdateStatus('error', undefined, msg);
     }
   });
   autoUpdater.on('download-progress', (p) => {
-    send('available', undefined, `${Math.round(p.percent)}%`);
+    sendUpdateStatus('available', downloadedUpdateVersion, `${Math.round(p.percent)}%`);
   });
   autoUpdater.on('update-downloaded', (info) => {
-    send('downloaded', info.version);
-    setTimeout(() => {
-      logInfo('updater', 'quitAndInstall', { version: info.version });
-      autoUpdater.quitAndInstall(false, true);
-    }, 800);
+    updateDownloadedReady = true;
+    downloadedUpdateVersion = info.version;
+    sendUpdateStatus('downloaded', info.version);
+    if (installWhenDownloaded) {
+      installWhenDownloaded = false;
+      applyDownloadedUpdate('manual-download-complete');
+    } else {
+      logInfo('updater', 'downloaded — waiting for reload', { version: info.version });
+    }
   });
 
   const check = (reason: string, manual = false) => {
@@ -717,10 +762,19 @@ ipcMain.handle('install-virtual-cable', async () => {
 ipcMain.handle('open-external', async (_evt, url: string) => {
   await shell.openExternal(url);
 });
-ipcMain.handle('check-for-updates', async () => {
+ipcMain.handle('check-for-updates', async (_evt, opts?: { manual?: boolean }) => {
   if (!app.isPackaged) return { ok: false, message: 'dev' };
-  return checkForUpdatesResilient('manual', true);
+  const manual = Boolean(opts?.manual);
+  return checkForUpdatesResilient(manual ? 'manual' : 'renderer', manual);
 });
+ipcMain.handle('apply-update', async () => {
+  if (!app.isPackaged) return { ok: false, message: 'dev' };
+  return applyDownloadedUpdate('renderer');
+});
+ipcMain.handle('update-ready', async () => ({
+  ready: updateDownloadedReady,
+  version: downloadedUpdateVersion,
+}));
 ipcMain.handle('set-changer-status', (_evt, on: boolean) => {
   applyChangerStatus(Boolean(on));
   return { ok: true, on: changerActive };

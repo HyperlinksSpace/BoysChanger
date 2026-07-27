@@ -154,6 +154,7 @@ export default function App() {
   );
   const [version, setVersion] = useState(APP_VERSION);
   const [updateNote, setUpdateNote] = useState('');
+  const [updateReady, setUpdateReady] = useState(false);
   const [prehear, setPrehear] = useState<PrehearState>({
     ready: false,
     playing: false,
@@ -261,9 +262,16 @@ export default function App() {
           else if (payload.status === 'available') {
             const pct = payload.message ? ` ${payload.message}` : '';
             setUpdateNote(t(loc, 'updateAvailable', { version: payload.version ?? '' }) + pct);
-          } else if (payload.status === 'downloaded') setUpdateNote(t(loc, 'updateDownloaded'));
-          else if (payload.status === 'not-available') setUpdateNote(t(loc, 'updateLatest'));
-          else if (payload.status === 'error') {
+          } else if (payload.status === 'downloaded') {
+            setUpdateReady(true);
+            setUpdateNote(t(loc, 'updateDownloaded', { version: payload.version ?? '' }));
+          } else if (payload.status === 'applying') {
+            setUpdateReady(true);
+            setUpdateNote(t(loc, 'updateApplying', { version: payload.version ?? '' }));
+          } else if (payload.status === 'not-available') {
+            setUpdateReady(false);
+            setUpdateNote(t(loc, 'updateLatest'));
+          } else if (payload.status === 'error') {
             const net =
               payload.message === 'network' ||
               payload.message === 'network-soft' ||
@@ -282,7 +290,19 @@ export default function App() {
             }
           }
         });
-        void window.boysChanger.checkForUpdates();
+        void window.boysChanger.updateReady?.().then((st) => {
+          if (st?.ready) {
+            setUpdateReady(true);
+            setUpdateNote(
+              t(
+                (localStorage.getItem('boyschanger-locale-user') as Locale) || 'en',
+                'updateDownloaded',
+                { version: st.version ?? '' },
+              ),
+            );
+          }
+        });
+        void window.boysChanger.checkForUpdates({ manual: false });
       }
     })();
 
@@ -1014,13 +1034,18 @@ export default function App() {
             </label>
             <button
               type="button"
-              className="secondary update-btn"
+              className={`secondary update-btn ${updateReady ? 'ready' : ''}`}
               onClick={() => {
+                if (updateReady) {
+                  setUpdateNote(tr('updateApplying', { version: '' }));
+                  void window.boysChanger?.applyUpdate?.();
+                  return;
+                }
                 setUpdateNote(tr('updateChecking'));
-                void window.boysChanger?.checkForUpdates();
+                void window.boysChanger?.checkForUpdates({ manual: true });
               }}
             >
-              {tr('updateCheck')}
+              {updateReady ? tr('updateReload') : tr('updateCheck')}
             </button>
             {updateNote ? <span className="update-note">{updateNote}</span> : null}
           </div>

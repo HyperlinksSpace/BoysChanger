@@ -167,6 +167,12 @@ body {
   font-size: 11px !important;
 }
 
+.update-btn.ready {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--line)) !important;
+  color: var(--accent) !important;
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.2);
+}
+
 /* —— ON/OFF + Prehear —— */
 .control-strip {
   display: grid;
