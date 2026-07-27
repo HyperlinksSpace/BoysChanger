@@ -181,8 +181,8 @@ export function createVoiceScene(
     root.add(mic);
     spin.push(mic);
     addRing(1.35, 0.035, Math.PI / 2.6);
+    addRing(1.85, card ? 0.02 : 0.025, Math.PI / 2.4, 0, glowMats[1]);
     if (!card) {
-      addRing(1.85, 0.025, Math.PI / 2.4, 0, glowMats[1]);
       addRing(2.25, 0.018, Math.PI / 1.7, 0.6, glowMats[2]);
     }
     addSpark(accent.clone().offsetHSL(0.08, 0, 0.1), 0.12).position.set(1.1, 0.6, 0.4);
@@ -322,14 +322,14 @@ export function createVoiceScene(
     scene.add(particles);
   }
 
-  const key = new THREE.DirectionalLight(0xffffff, card ? 1.65 : 1.25);
+  const key = new THREE.DirectionalLight(0xffffff, card ? 1.45 : 1.25);
   key.position.set(3, 5, 4);
   scene.add(key);
-  scene.add(new THREE.AmbientLight(0xffffff, card ? 0.55 : 0.32));
-  const rim = new THREE.PointLight(accent.getHex(), card ? 2.2 : 2.4, 14);
+  scene.add(new THREE.AmbientLight(0xffffff, card ? 0.4 : 0.32));
+  const rim = new THREE.PointLight(accent.getHex(), card ? 2.0 : 2.4, 14);
   rim.position.set(-2.2, 1.5, 2);
   scene.add(rim);
-  const fill = new THREE.PointLight(accent.clone().offsetHSL(0.2, 0, 0).getHex(), 1.2, 10);
+  const fill = new THREE.PointLight(accent.clone().offsetHSL(0.2, 0, 0).getHex(), card ? 1.05 : 1.2, 10);
   fill.position.set(2.4, -1.2, 1.5);
   scene.add(fill);
 

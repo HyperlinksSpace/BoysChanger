@@ -16,7 +16,6 @@ import { TelegramGuideModal } from './components/TelegramGuideModal';
 import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
 import { ProfileAvatar } from './components/ProfileAvatar';
 import { ProfileModal } from './components/ProfileModal';
-import { SceneChip } from './components/SceneChip';
 import { VoiceReactionPicker } from './components/VoiceReactionPicker';
 import { VoiceScene3D } from './components/VoiceScene3D';
 import { accentFromSeed, variantFromSeed, type SceneVariant } from './visuals/createVoiceScene';
@@ -985,18 +984,14 @@ export default function App() {
             onClick={() => setTab(id)}
           >
             <span className="nav-icon-3d" aria-hidden>
-              {tab === id ? (
-                <VoiceScene3D
-                  density="card"
-                  variant={navSceneVariant(id)}
-                  accent="#0c1210"
-                  className="voice-scene-3d card"
-                  lazy={false}
-                  priority="nav"
-                />
-              ) : (
-                <SceneChip variant={navSceneVariant(id)} accent="#8dff6a" />
-              )}
+              <VoiceScene3D
+                density="card"
+                variant={navSceneVariant(id)}
+                accent="#8dff6a"
+                className="voice-scene-3d card"
+                lazy={false}
+                priority={tab === id ? 'nav' : 'card'}
+              />
             </span>
             <span className="nav-label">{label}</span>
           </button>
@@ -1091,9 +1086,13 @@ export default function App() {
                           }}
                         />
                         <span className="dock-monitor-3d" aria-hidden>
-                          <SceneChip
+                          <VoiceScene3D
+                            density="card"
                             variant="wave"
                             accent={settings.monitorLocally ? '#8dff6a' : '#5ce1ff'}
+                            className="voice-scene-3d card"
+                            lazy
+                            priority="card"
                           />
                         </span>
                         <span>{tr('dockHearMyself')}</span>
@@ -1511,9 +1510,13 @@ export default function App() {
             }}
           />
           <span className="dock-monitor-3d" aria-hidden>
-            <SceneChip
+            <VoiceScene3D
+              density="card"
               variant="wave"
               accent={settings.monitorLocally ? '#8dff6a' : '#5ce1ff'}
+              className="voice-scene-3d card"
+              lazy={false}
+              priority="card"
             />
           </span>
           <span>{tr('dockHearMyself')}</span>
@@ -1525,7 +1528,14 @@ export default function App() {
           onClick={() => setTab('studio')}
         >
           <span className="dock-studio-3d" aria-hidden>
-            <SceneChip variant="flask" accent={tab === 'studio' ? '#0c1210' : '#8dff6a'} />
+            <VoiceScene3D
+              density="card"
+              variant="flask"
+              accent="#8dff6a"
+              className="voice-scene-3d card"
+              lazy={false}
+              priority="card"
+            />
           </span>
           <span className="dock-studio-label">{tr('dockStudio')}</span>
         </button>

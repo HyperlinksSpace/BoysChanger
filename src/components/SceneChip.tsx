@@ -8,8 +8,8 @@ type Props = {
 };
 
 /**
- * Colourful animated stand-in for each 3D variant.
- * Used alone in dense UIs and as the under-layer beneath WebGL canvases.
+ * Fallback that matches VoiceScene3D / dashboard hero language:
+ * black stage, dark metal forms, emissive accent — not flat UI icons.
  */
 export function SceneChip({ variant = 'mic', accent = '#8dff6a', className }: Props) {
   return (
@@ -19,133 +19,137 @@ export function SceneChip({ variant = 'mic', accent = '#8dff6a', className }: Pr
       style={{ '--chip': accent } as React.CSSProperties}
       aria-hidden
     >
-      <span className="scene-chip-glow" />
-      <span className="scene-chip-orb" />
-      <span className="scene-chip-orbit a" />
-      <span className="scene-chip-orbit b" />
-      <span className="scene-chip-spark s1" />
-      <span className="scene-chip-spark s2" />
-      <span className="scene-chip-spark s3" />
-      <svg className="scene-chip-mark" viewBox="0 0 24 24" fill="none">
-        {mark(variant)}
+      <span className="scene-chip-stage" />
+      <span className="scene-chip-rim" />
+      <span className="scene-chip-rim soft" />
+      <svg className="scene-chip-form" viewBox="0 0 64 64" fill="none">
+        {form(variant)}
       </svg>
     </span>
   );
 }
 
-function mark(variant: SceneVariant) {
+function form(variant: SceneVariant) {
+  const accent = 'var(--chip)';
   switch (variant) {
     case 'mic':
       return (
         <>
-          <rect x="9" y="3.2" width="6" height="11" rx="3" fill="currentColor" opacity="0.92" />
-          <path
-            d="M6.4 11.2a5.6 5.6 0 0 0 11.2 0"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-          <path d="M12 16.8V21M9.2 21h5.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <ellipse cx="32" cy="54" rx="14" ry="3.5" fill={accent} opacity="0.85" />
+          <rect x="29.5" y="38" width="5" height="14" rx="2" fill="#1a2224" stroke={accent} strokeWidth="1.2" />
+          <rect x="24" y="14" width="16" height="26" rx="8" fill="#141a1c" stroke={accent} strokeWidth="1.6" />
+          <ellipse cx="32" cy="18" rx="7" ry="2.2" fill={accent} opacity="0.7" />
+          <circle cx="44" cy="22" r="2.4" fill={accent} opacity="0.9" />
+          <circle cx="20" cy="34" r="1.8" fill="#fff" opacity="0.55" />
         </>
       );
     case 'speaker':
       return (
         <>
-          <path
-            d="M3.8 9.2v5.6h3.4L12 19.2V4.8L7.2 9.2H3.8Z"
-            fill="currentColor"
-            opacity="0.92"
-          />
-          <path
-            d="M15.2 9a3.4 3.4 0 0 1 0 6M17.8 6.8a5.8 5.8 0 0 1 0 10.4"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-          />
+          <ellipse cx="32" cy="32" rx="18" ry="18" fill="#12181a" stroke={accent} strokeWidth="2" />
+          <ellipse cx="32" cy="32" rx="11" ry="11" fill="#0a0e10" stroke={accent} strokeWidth="1.4" opacity="0.9" />
+          <ellipse cx="32" cy="32" rx="5" ry="5" fill={accent} opacity="0.85" />
+          <circle cx="46" cy="18" r="2" fill={accent} />
         </>
       );
     case 'flask':
       return (
         <>
           <path
-            d="M9 3.2h6M10.2 3.2v5.8L5.6 18.2A2.3 2.3 0 0 0 7.7 21.4h8.6a2.3 2.3 0 0 0 2.1-3.2L13.8 9V3.2"
-            stroke="currentColor"
-            strokeWidth="1.7"
+            d="M26 12h12M28 12v10l-9 20a8 8 0 0 0 7 12h12a8 8 0 0 0 7-12l-9-20V12"
+            fill="#141a1c"
+            stroke={accent}
+            strokeWidth="1.8"
             strokeLinejoin="round"
           />
-          <path d="M8.2 16.2h7.6" stroke="currentColor" strokeWidth="1.5" opacity="0.55" />
-          <circle cx="10.2" cy="14.2" r="1.1" fill="currentColor" opacity="0.85" />
-          <circle cx="13.8" cy="12.6" r="0.8" fill="currentColor" opacity="0.7" />
+          <ellipse cx="32" cy="42" rx="10" ry="6" fill={accent} opacity="0.55" />
+          <circle cx="28" cy="40" r="2" fill="#fff" opacity="0.45" />
+          <circle cx="36" cy="36" r="1.5" fill={accent} />
         </>
       );
     case 'gear':
       return (
         <>
-          <circle cx="12" cy="12" r="3.1" fill="currentColor" opacity="0.9" />
-          <circle cx="12" cy="12" r="1.2" fill="#071410" />
-          <path
-            d="M12 3.4v2.1M12 18.5v2.1M3.4 12h2.1M18.5 12h2.1M6 6l1.5 1.5M16.5 16.5 18 18M18 6l-1.5 1.5M7.5 16.5 6 18"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
+          <circle cx="32" cy="32" r="10" fill="#141a1c" stroke={accent} strokeWidth="2" />
+          <circle cx="32" cy="32" r="4" fill="#0a0e10" stroke={accent} strokeWidth="1.2" />
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => {
+            const a = (deg * Math.PI) / 180;
+            const x = 32 + Math.cos(a) * 16;
+            const y = 32 + Math.sin(a) * 16;
+            return (
+              <rect
+                key={deg}
+                x={x - 3}
+                y={y - 3}
+                width="6"
+                height="6"
+                rx="1.2"
+                fill={accent}
+                opacity="0.85"
+                transform={`rotate(${deg} ${x} ${y})`}
+              />
+            );
+          })}
         </>
       );
     case 'logo':
       return (
         <>
-          <circle cx="12" cy="12" r="8.2" stroke="currentColor" strokeWidth="1.8" />
-          <circle cx="12" cy="12" r="4.6" fill="currentColor" opacity="0.22" />
-          <path
-            d="M8 13.6c1.2 1.7 2.5 2.5 4 2.5s2.8-.8 4-2.5"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-          <circle cx="9.1" cy="10.1" r="1.25" fill="currentColor" />
-          <circle cx="14.9" cy="10.1" r="1.25" fill="currentColor" />
+          <rect x="16" y="16" width="32" height="32" rx="6" fill="#12181a" stroke={accent} strokeWidth="1.6" />
+          <path d="M32 20 L42 32 L32 44 L22 32 Z" fill={accent} opacity="0.92" />
+          <path d="M32 24 L38 32 L32 40 L26 32 Z" fill="#0a0e10" opacity="0.35" />
+          <circle cx="44" cy="20" r="2.2" fill="#fff" opacity="0.6" />
         </>
       );
     case 'wave':
       return (
         <>
-          <path
-            d="M3.2 12c1.7-4.2 3.4-4.2 5.1 0s3.4 4.2 5.1 0 3.4-4.2 5.1 0 1.7 2.1 2.5 2.1"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-          <path
-            d="M4.5 16.5c1.4-2.4 2.8-2.4 4.2 0s2.8 2.4 4.2 0 2.8-2.4 4.2 0"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            opacity="0.55"
-          />
+          {[0, 1, 2, 3, 4].map((i) => {
+            const h = 10 + ((i * 7) % 18);
+            return (
+              <rect
+                key={i}
+                x={16 + i * 7}
+                y={32 - h / 2}
+                width="5"
+                height={h}
+                rx="2"
+                fill={i % 2 === 0 ? accent : '#1a2224'}
+                stroke={accent}
+                strokeWidth="0.8"
+                opacity={i % 2 === 0 ? 0.95 : 0.8}
+              />
+            );
+          })}
+          <ellipse cx="32" cy="50" rx="16" ry="2.5" fill={accent} opacity="0.35" />
         </>
       );
     case 'crystal':
       return (
         <>
-          <path d="M12 2.8 18.4 9.4 12 21.2 5.6 9.4Z" fill="currentColor" opacity="0.9" />
-          <path d="M12 2.8 15.2 9.4H8.8Z" fill="#fff" opacity="0.35" />
+          <path d="M32 10 L48 30 L32 54 L16 30 Z" fill="#141a1c" stroke={accent} strokeWidth="1.8" />
+          <path d="M32 10 L40 30 L32 54 L24 30 Z" fill={accent} opacity="0.55" />
+          <path d="M32 10 L40 30 L24 30 Z" fill="#fff" opacity="0.25" />
+          <circle cx="46" cy="18" r="1.8" fill={accent} />
         </>
       );
     case 'ring':
       return (
         <>
-          <circle cx="12" cy="12" r="7.4" stroke="currentColor" strokeWidth="2.1" />
-          <circle cx="12" cy="12" r="4.2" stroke="currentColor" strokeWidth="1.7" opacity="0.75" />
-          <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+          <circle cx="32" cy="32" r="18" fill="none" stroke={accent} strokeWidth="3" opacity="0.9" />
+          <circle cx="32" cy="32" r="12" fill="none" stroke="#fff" strokeWidth="1.4" opacity="0.35" />
+          <circle cx="32" cy="32" r="6" fill="#12181a" stroke={accent} strokeWidth="1.4" />
+          <circle cx="46" cy="18" r="2" fill={accent} />
         </>
       );
     case 'orb':
     default:
       return (
         <>
-          <circle cx="12" cy="12" r="7.6" fill="currentColor" opacity="0.9" />
-          <circle cx="9.4" cy="9.2" r="2.4" fill="#fff" opacity="0.55" />
-          <circle cx="14.8" cy="14.6" r="1.4" fill="#071410" opacity="0.25" />
+          <circle cx="32" cy="32" r="16" fill="#141a1c" stroke={accent} strokeWidth="1.6" />
+          <circle cx="32" cy="32" r="11" fill={accent} opacity="0.88" />
+          <circle cx="26" cy="26" r="4" fill="#fff" opacity="0.45" />
+          <circle cx="44" cy="20" r="2" fill="#fff" opacity="0.55" />
         </>
       );
   }
