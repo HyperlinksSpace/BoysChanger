@@ -19,6 +19,7 @@ import {
   type UserProfile,
 } from '../profile/userProfile';
 import { ProfileAvatar, SkinSwatch } from './ProfileAvatar';
+import { VoiceScene3D } from './VoiceScene3D';
 
 type Props = {
   open: boolean;
@@ -60,11 +61,6 @@ export function ProfileModal({ open, onClose, profile, onSaved, tr }: Props) {
   }, [open, onClose]);
 
   if (!open) return null;
-
-  const previewAvatar =
-    mode === 'upload' && uploadPreview
-      ? ({ mode: 'upload' as const, previewUrl: uploadPreview })
-      : draft;
 
   const setSkin = (skin: SkinId) => setDraft((d) => ({ ...d, skin }));
   const setHair = (hair: HairId) => setDraft((d) => ({ ...d, hair }));
@@ -149,7 +145,22 @@ export function ProfileModal({ open, onClose, profile, onSaved, tr }: Props) {
           <p className="hint">{tr('profileLede')}</p>
 
           <div className="profile-preview-row">
-            <ProfileAvatar avatar={previewAvatar} className="profile-avatar xl" />
+            <div className="profile-preview-art">
+              {mode === 'upload' && uploadPreview ? (
+                <ProfileAvatar
+                  avatar={{ mode: 'upload', previewUrl: uploadPreview }}
+                  className="profile-avatar xl"
+                />
+              ) : (
+                <VoiceScene3D
+                  density="compact"
+                  variant="logo"
+                  accent={SKIN_OPTIONS.find((s) => s.id === draft.skin)?.color || '#8dff6a'}
+                  className="voice-scene-3d compact"
+                  priority="hero"
+                />
+              )}
+            </div>
             <div className="profile-preview-meta">
               <label>
                 {tr('profileName')}

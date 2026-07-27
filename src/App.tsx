@@ -985,14 +985,18 @@ export default function App() {
             onClick={() => setTab(id)}
           >
             <span className="nav-icon-3d" aria-hidden>
-              <VoiceScene3D
-                density="card"
-                variant={navSceneVariant(id)}
-                accent={tab === id ? '#0c1210' : '#8dff6a'}
-                className="voice-scene-3d card"
-                lazy={false}
-                priority="nav"
-              />
+              {tab === id ? (
+                <VoiceScene3D
+                  density="card"
+                  variant={navSceneVariant(id)}
+                  accent="#0c1210"
+                  className="voice-scene-3d card"
+                  lazy={false}
+                  priority="nav"
+                />
+              ) : (
+                <SceneChip variant={navSceneVariant(id)} accent="#8dff6a" />
+              )}
             </span>
             <span className="nav-label">{label}</span>
           </button>
@@ -1086,6 +1090,12 @@ export default function App() {
                             }
                           }}
                         />
+                        <span className="dock-monitor-3d" aria-hidden>
+                          <SceneChip
+                            variant="wave"
+                            accent={settings.monitorLocally ? '#8dff6a' : '#5ce1ff'}
+                          />
+                        </span>
                         <span>{tr('dockHearMyself')}</span>
                       </label>
                     </div>
@@ -1122,7 +1132,8 @@ export default function App() {
                         onClick={() => selectPreset(p)}
                       >
                         <span className="dash-voice-3d" aria-hidden>
-                          <SceneChip
+                          <VoiceScene3D
+                            density="card"
                             variant={
                               p.id.includes('robot')
                                 ? 'gear'
@@ -1141,6 +1152,9 @@ export default function App() {
                                             : variantFromSeed(p.id)
                             }
                             accent={p.color}
+                            className="voice-scene-3d card"
+                            lazy
+                            priority="card"
                           />
                         </span>
                         <span>{p.name}</span>
@@ -1182,7 +1196,14 @@ export default function App() {
                             onClick={() => void playDashSound(s)}
                           >
                             <span className="dash-voice-3d" aria-hidden>
-                              <SceneChip variant={variant} accent={color} />
+                              <VoiceScene3D
+                                density="card"
+                                variant={variant}
+                                accent={color}
+                                className="voice-scene-3d card"
+                                lazy
+                                priority="card"
+                              />
                             </span>
                             <span>{dashPlayingId === s.id ? tr('soundsPlaying') : s.name}</span>
                           </button>
@@ -1489,7 +1510,13 @@ export default function App() {
               }
             }}
           />
-          <span>👂 {tr('dockHearMyself')}</span>
+          <span className="dock-monitor-3d" aria-hidden>
+            <SceneChip
+              variant="wave"
+              accent={settings.monitorLocally ? '#8dff6a' : '#5ce1ff'}
+            />
+          </span>
+          <span>{tr('dockHearMyself')}</span>
         </label>
         <button
           type="button"
@@ -1497,8 +1524,8 @@ export default function App() {
           title={tr('dockStudioHint')}
           onClick={() => setTab('studio')}
         >
-          <span className="dock-studio-icon" aria-hidden>
-            ✦
+          <span className="dock-studio-3d" aria-hidden>
+            <SceneChip variant="flask" accent={tab === 'studio' ? '#0c1210' : '#8dff6a'} />
           </span>
           <span className="dock-studio-label">{tr('dockStudio')}</span>
         </button>

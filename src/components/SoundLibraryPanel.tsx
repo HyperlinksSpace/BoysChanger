@@ -6,7 +6,6 @@ import {
   removeSound,
   type LibrarySound,
 } from '../audio/soundLibrary';
-import { SceneChip } from './SceneChip';
 import { VoiceScene3D } from './VoiceScene3D';
 import { accentFromSeed, variantFromSeed } from '../visuals/createVoiceScene';
 
@@ -150,9 +149,13 @@ export function SoundLibraryPanel({
               <div key={s.id} className={`sound-chip ${activeId === s.id ? 'active' : ''}`}>
                 <button type="button" className="sound-play" onClick={() => void play(s)}>
                   <span className="sound-3d" aria-hidden>
-                    <SceneChip
+                    <VoiceScene3D
+                      density="card"
                       variant={variant === 'wave' ? 'wave' : variant}
                       accent={color}
+                      className="voice-scene-3d card"
+                      lazy
+                      priority="card"
                     />
                   </span>
                   <span className="sound-meta">

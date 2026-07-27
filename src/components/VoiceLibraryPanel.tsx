@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import type { VoicePreset } from '../audio/voicePresets';
-import { SceneChip } from './SceneChip';
 import { VoiceScene3D } from './VoiceScene3D';
 import { variantFromSeed, type SceneVariant } from '../visuals/createVoiceScene';
 
@@ -114,7 +113,14 @@ export function VoiceLibraryPanel({
               onClick={() => onSelect(p)}
             >
               <span className="voice-card-ring">
-                <SceneChip variant={variantForPreset(p)} accent={p.color} />
+                <VoiceScene3D
+                  density="card"
+                  variant={variantForPreset(p)}
+                  accent={p.color}
+                  className="voice-scene-3d card"
+                  lazy
+                  priority="card"
+                />
               </span>
               <span className="voice-card-name">{p.name}</span>
               <span className="voice-card-meta">

@@ -6,6 +6,7 @@ import {
   type VoiceSceneHandle,
 } from '../visuals/createVoiceScene';
 import { holdWebGLSlot, type ScenePriority } from '../visuals/scenePool';
+import { SceneChip } from './SceneChip';
 
 type Props = {
   className?: string;
@@ -128,17 +129,18 @@ export function VoiceScene3D({
     if (accent) handle.current?.setAccent(accent);
   }, [accent]);
 
-  const fallback = accent || '#8dff6a';
+  const color = accent || '#8dff6a';
 
   return (
     <div
       ref={mountRef}
       className={className || 'voice-scene-3d'}
       data-variant={variant}
+      data-live={hasSlot ? '1' : '0'}
       aria-hidden
     >
-      {/* Always under the canvas so dead/lost contexts still look colourful. */}
-      <span className="voice-scene-fallback" style={{ '--fb': fallback } as React.CSSProperties} />
+      {/* Always-on colourful animated variant — visible until / if WebGL mounts. */}
+      <SceneChip variant={variant} accent={color} className="scene-chip underlay" />
     </div>
   );
 }

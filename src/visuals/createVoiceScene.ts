@@ -290,15 +290,15 @@ export function createVoiceScene(
     new THREE.Color('#ffffff'),
   ];
   sparkColors.forEach((c, i) => {
-    if (card && i > 1) return;
-    const s = addSpark(c, card ? 0.09 : 0.14 + (i % 2) * 0.04);
+    if (card && i > 2) return;
+    const s = addSpark(c, card ? 0.1 : 0.14 + (i % 2) * 0.04);
     const a = (i / sparkColors.length) * Math.PI * 2;
     s.position.set(Math.cos(a) * 1.35, Math.sin(a * 1.3) * 0.35, Math.sin(a) * 1.1);
   });
 
   let particles: THREE.Points | null = null;
   {
-    const count = card ? 48 : compact ? 140 : 240;
+    const count = card ? 72 : compact ? 140 : 240;
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       const spread = card ? 5 : 12;
