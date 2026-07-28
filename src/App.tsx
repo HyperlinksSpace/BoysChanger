@@ -19,7 +19,7 @@ import { ProfileModal } from './components/ProfileModal';
 import { VoiceReactionPicker } from './components/VoiceReactionPicker';
 import { SceneChip } from './components/SceneChip';
 import { VoiceScene3D } from './components/VoiceScene3D';
-import { accentFromSeed, variantFromSeed, variantForVoicePreset, type SceneVariant } from './visuals/createVoiceScene';
+import { accentForSound, variantForSound, variantForVoicePreset, type SceneVariant } from './visuals/createVoiceScene';
 import { getSoundArrayBuffer, listSounds, type LibrarySound } from './audio/soundLibrary';
 import {
   applyPayloadToSettings,
@@ -1154,8 +1154,8 @@ export default function App() {
                   ) : (
                     <div className="dash-sound-row">
                       {dashSounds.slice(0, 8).map((s) => {
-                        const color = accentFromSeed(s.id + s.name);
-                        const variant = s.source === 'user' ? 'wave' : variantFromSeed(s.id + s.name);
+                        const color = accentForSound(s.id, s.name);
+                        const variant = variantForSound(s.id, s.name);
                         return (
                           <button
                             key={s.id}

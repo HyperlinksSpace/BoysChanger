@@ -63,14 +63,47 @@ export function variantFromSeed(seed: string): SceneVariant {
 /** Same mapping used by Voices list, dashboard chips, and the studio picker. */
 export function variantForVoicePreset(id: string, name = ''): SceneVariant {
   const key = `${id} ${name}`.toLowerCase();
-  if (key.includes('robot')) return 'gear';
-  if (key.includes('radio')) return 'speaker';
-  if (key.includes('clean')) return 'mic';
-  if (key.includes('alien')) return 'crystal';
-  if (key.includes('chipmunk')) return 'orb';
-  if (key.includes('elder') || key.includes('hero')) return 'flask';
-  if (key.includes('girl') || key.includes('bright')) return 'ring';
+  if (/robot|бот|меха|mecha|cyborg/.test(key)) return 'gear';
+  if (/radio|радио|broadcast|fm/.test(key)) return 'speaker';
+  if (/clean|mic|чист|микроф/.test(key)) return 'mic';
+  if (/alien|инопла|space|космо/.test(key)) return 'crystal';
+  if (/chipmunk|бурундук|squeak|писк/.test(key)) return 'orb';
+  if (/elder|мудр|wise|old|стар/.test(key)) return 'flask';
+  if (/hero|герой|deep|глуб|bass|бас|муж|mascul|man|boy|парен/.test(key)) return 'logo';
+  if (/girl|девуш|жен|femin|bright|ярк|мил|young|молод|andro|андро|teen|подрост/.test(key)) {
+    return 'ring';
+  }
+  if (/wave|волн|chorus|хорус/.test(key)) return 'wave';
   return variantFromSeed(id + name);
+}
+
+/** Shape for sound library chips — reflects what the FX feels like. */
+export function variantForSound(id: string, name = ''): SceneVariant {
+  const key = `${id} ${name}`.toLowerCase();
+  if (/click|клик|tick|tap/.test(key)) return 'gear';
+  if (/beep|бип|tone|тон/.test(key)) return 'ring';
+  if (/blip|блип|pop|поп/.test(key)) return 'orb';
+  if (/laser|лазер|zap|луч/.test(key)) return 'crystal';
+  if (/whoosh|вуш|swish|wind|ветер|sweep/.test(key)) return 'wave';
+  if (/coin|монет|chime|звон|bell/.test(key)) return 'flask';
+  if (/thud|удд|boom|удар|bass|бас|drum/.test(key)) return 'speaker';
+  if (/glitch|глитч|noise|шум|static|ошиб/.test(key)) return 'gear';
+  if (/mp3|user|upload|загруз|мо[йи]|mine/.test(key)) return 'wave';
+  return variantFromSeed(id + name);
+}
+
+/** Accent colors that match the sound’s character (not a random hash). */
+export function accentForSound(id: string, name = ''): string {
+  const key = `${id} ${name}`.toLowerCase();
+  if (/click|клик|tick|tap/.test(key)) return '#5ce1ff';
+  if (/beep|бип|tone|тон/.test(key)) return '#c084fc';
+  if (/blip|блип|pop|поп/.test(key)) return '#ff7a45';
+  if (/laser|лазер|zap|луч/.test(key)) return '#8dff6a';
+  if (/whoosh|вуш|swish|wind|ветер|sweep/.test(key)) return '#5ce1ff';
+  if (/coin|монет|chime|звон|bell/.test(key)) return '#ffd166';
+  if (/thud|удд|boom|удар|bass|бас|drum/.test(key)) return '#ff5cad';
+  if (/glitch|глитч|noise|шум|static|ошиб/.test(key)) return '#8dff6a';
+  return accentFromSeed(id + name);
 }
 
 export function createVoiceScene(

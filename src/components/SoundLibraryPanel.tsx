@@ -8,7 +8,7 @@ import {
 } from '../audio/soundLibrary';
 import { SceneChip } from './SceneChip';
 import { VoiceScene3D } from './VoiceScene3D';
-import { accentFromSeed, variantFromSeed } from '../visuals/createVoiceScene';
+import { accentForSound, variantForSound } from '../visuals/createVoiceScene';
 
 type Props = {
   labels: {
@@ -144,16 +144,13 @@ export function SoundLibraryPanel({
       ) : (
         <div className="sound-grid">
           {sounds.map((s) => {
-            const color = accentFromSeed(s.id + s.name);
-            const variant = s.source === 'user' ? 'wave' : variantFromSeed(s.id);
+            const color = accentForSound(s.id, s.name);
+            const variant = variantForSound(s.id, s.name);
             return (
               <div key={s.id} className={`sound-chip ${activeId === s.id ? 'active' : ''}`}>
                 <button type="button" className="sound-play" onClick={() => void play(s)}>
                   <span className="sound-3d" aria-hidden>
-                    <SceneChip
-                      variant={variant === 'wave' ? 'wave' : variant}
-                      accent={color}
-                    />
+                    <SceneChip variant={variant} accent={color} />
                   </span>
                   <span className="sound-meta">
                     <strong>{s.name}</strong>
