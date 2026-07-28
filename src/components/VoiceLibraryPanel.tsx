@@ -1,20 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import type { VoicePreset } from '../audio/voicePresets';
 import { VoiceScene3D } from './VoiceScene3D';
-import { variantFromSeed, type SceneVariant } from '../visuals/createVoiceScene';
+import { variantForVoicePreset } from '../visuals/createVoiceScene';
 
 type Filter = 'all' | 'builtin' | 'mine';
-
-function variantForPreset(p: VoicePreset): SceneVariant {
-  if (p.id.includes('robot')) return 'gear';
-  if (p.id.includes('radio')) return 'speaker';
-  if (p.id.includes('clean')) return 'mic';
-  if (p.id.includes('alien')) return 'crystal';
-  if (p.id.includes('chipmunk')) return 'orb';
-  if (p.id.includes('elder') || p.id.includes('hero')) return 'flask';
-  if (p.id.includes('girl') || p.id.includes('bright')) return 'ring';
-  return variantFromSeed(p.id + p.name);
-}
 
 type Props = {
   presets: VoicePreset[];
@@ -115,7 +104,7 @@ export function VoiceLibraryPanel({
               <span className="voice-card-ring">
                 <VoiceScene3D
                   density="card"
-                  variant={variantForPreset(p)}
+                  variant={variantForVoicePreset(p.id, p.name)}
                   accent={p.color}
                   className="voice-scene-3d card"
                   lazy

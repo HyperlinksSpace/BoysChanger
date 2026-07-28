@@ -18,7 +18,7 @@ import { ProfileAvatar } from './components/ProfileAvatar';
 import { ProfileModal } from './components/ProfileModal';
 import { VoiceReactionPicker } from './components/VoiceReactionPicker';
 import { VoiceScene3D } from './components/VoiceScene3D';
-import { accentFromSeed, variantFromSeed, type SceneVariant } from './visuals/createVoiceScene';
+import { accentFromSeed, variantFromSeed, variantForVoicePreset, type SceneVariant } from './visuals/createVoiceScene';
 import { getSoundArrayBuffer, listSounds, type LibrarySound } from './audio/soundLibrary';
 import {
   applyPayloadToSettings,
@@ -691,21 +691,7 @@ export default function App() {
   const changerOn = Boolean(settings.enabled && engineOn);
   const activePreset = voicePresets.find((p) => p.id === activePresetId) || null;
   const activeVariant: SceneVariant = activePreset
-    ? activePreset.id.includes('robot')
-      ? 'gear'
-      : activePreset.id.includes('radio')
-        ? 'speaker'
-        : activePreset.id.includes('clean')
-          ? 'mic'
-          : activePreset.id.includes('alien')
-            ? 'crystal'
-            : activePreset.id.includes('chipmunk')
-              ? 'orb'
-              : activePreset.id.includes('elder') || activePreset.id.includes('hero')
-                ? 'flask'
-                : activePreset.id.includes('girl') || activePreset.id.includes('bright')
-                  ? 'ring'
-                  : variantFromSeed(activePreset.id)
+    ? variantForVoicePreset(activePreset.id, activePreset.name)
     : 'logo';
 
   const navSceneVariant = (id: AppTab): SceneVariant => {
@@ -1133,23 +1119,7 @@ export default function App() {
                         <span className="dash-voice-3d" aria-hidden>
                           <VoiceScene3D
                             density="card"
-                            variant={
-                              p.id.includes('robot')
-                                ? 'gear'
-                                : p.id.includes('radio')
-                                  ? 'speaker'
-                                  : p.id.includes('clean')
-                                    ? 'mic'
-                                    : p.id.includes('alien')
-                                      ? 'crystal'
-                                      : p.id.includes('chipmunk')
-                                        ? 'orb'
-                                        : p.id.includes('elder') || p.id.includes('hero')
-                                          ? 'flask'
-                                          : p.id.includes('girl')
-                                            ? 'ring'
-                                            : variantFromSeed(p.id)
-                            }
+                            variant={variantForVoicePreset(p.id, p.name)}
                             accent={p.color}
                             className="voice-scene-3d card"
                             lazy

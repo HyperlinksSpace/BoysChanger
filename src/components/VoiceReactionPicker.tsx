@@ -1,5 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import type { VoicePreset } from '../audio/voicePresets';
+import { variantForVoicePreset } from '../visuals/createVoiceScene';
+import { SceneChip } from './SceneChip';
 
 type Props = {
   open: boolean;
@@ -11,7 +13,7 @@ type Props = {
   onClose: () => void;
 };
 
-/** Messenger-style reaction tray anchored near the pointer. */
+/** Messenger-style tray — icons match the Voices section (same 3D chip language). */
 export function VoiceReactionPicker({
   open,
   x,
@@ -75,14 +77,16 @@ export function VoiceReactionPicker({
           role="option"
           aria-selected={activeId === p.id}
           className={`voice-reaction ${activeId === p.id ? 'active' : ''}`}
-          style={{ '--rx': p.color } as React.CSSProperties}
+          style={{ '--rx': p.color, '--card-accent': p.color } as React.CSSProperties}
           title={p.name}
           onClick={(e) => {
             e.stopPropagation();
             onPick(p);
           }}
         >
-          <span className="voice-reaction-emoji">{p.emoji}</span>
+          <span className="voice-reaction-3d" aria-hidden>
+            <SceneChip variant={variantForVoicePreset(p.id, p.name)} accent={p.color} />
+          </span>
           <span className="voice-reaction-name">{p.name}</span>
         </button>
       ))}

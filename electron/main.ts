@@ -112,8 +112,13 @@ function resolveStatusIconPath(on: boolean) {
 }
 
 function resolveTrayIconPath(on: boolean) {
+  // Prefer the app mark with ON/OFF badge (not the old power-glyph tray assets).
   return firstExisting(
-    assetCandidates(on ? 'tray-on.png' : 'tray-off.png', on ? 'overlay-on.png' : 'overlay-off.png', 'icon.png'),
+    assetCandidates(
+      on ? 'icon-status-on.png' : 'icon-status-off.png',
+      on ? 'tray-on.png' : 'tray-off.png',
+      'icon.png',
+    ),
   );
 }
 
@@ -131,9 +136,16 @@ function updateTrayIcon() {
   if (!tray || tray.isDestroyed()) return;
   const trayPath = resolveTrayIconPath(changerActive);
   if (!trayPath) return;
-  const img = nativeImage.createFromPath(trayPath);
+  let img = nativeImage.createFromPath(trayPath);
   if (img.isEmpty()) return;
-  tray.setImage(process.platform === 'darwin' ? img.resize({ width: 18, height: 18 }) : img);
+  // Windows tray looks best around 16–32px; keep the app mark crisp.
+  if (process.platform === 'win32') {
+    const { width } = img.getSize();
+    if (width > 32) img = img.resize({ width: 32, height: 32 });
+  } else if (process.platform === 'darwin') {
+    img = img.resize({ width: 18, height: 18 });
+  }
+  tray.setImage(img);
   tray.setToolTip(changerActive ? 'BoysChanger — ON' : 'BoysChanger — OFF');
   rebuildTrayMenu();
 }

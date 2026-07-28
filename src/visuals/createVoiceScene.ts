@@ -56,6 +56,19 @@ export function variantFromSeed(seed: string): SceneVariant {
   return all[h % all.length];
 }
 
+/** Same mapping used by Voices list, dashboard chips, and the studio picker. */
+export function variantForVoicePreset(id: string, name = ''): SceneVariant {
+  const key = `${id} ${name}`.toLowerCase();
+  if (key.includes('robot')) return 'gear';
+  if (key.includes('radio')) return 'speaker';
+  if (key.includes('clean')) return 'mic';
+  if (key.includes('alien')) return 'crystal';
+  if (key.includes('chipmunk')) return 'orb';
+  if (key.includes('elder') || key.includes('hero')) return 'flask';
+  if (key.includes('girl') || key.includes('bright')) return 'ring';
+  return variantFromSeed(id + name);
+}
+
 export function createVoiceScene(
   container: HTMLElement,
   options: VoiceSceneOptions = {},
