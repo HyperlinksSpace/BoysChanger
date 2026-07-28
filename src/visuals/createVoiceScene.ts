@@ -89,7 +89,10 @@ export function createVoiceScene(
   if (!card) scene.fog = new THREE.FogExp2(0x000000, 0.032);
 
   const camera = new THREE.PerspectiveCamera(card ? 34 : 40, 1, 0.1, 100);
-  camera.position.set(0, card ? 0.05 : 0.15, card ? 3.9 : compact ? 5.4 : 5.0);
+  // Keep optical center on the sculpture — a raised camera without lookAt
+  // made compact/profile frames look shifted down and clipped.
+  camera.position.set(0, 0, card ? 4.15 : compact ? 5.6 : 5.0);
+  camera.lookAt(0, 0, 0);
 
   const renderer = new THREE.WebGLRenderer({
     antialias: !card,
@@ -101,12 +104,13 @@ export function createVoiceScene(
   renderer.domElement.style.width = '100%';
   renderer.domElement.style.height = '100%';
   renderer.domElement.style.display = 'block';
-  renderer.domElement.style.position = 'relative';
+  renderer.domElement.style.position = 'absolute';
+  renderer.domElement.style.inset = '0';
   renderer.domElement.style.zIndex = '1';
   container.appendChild(renderer.domElement);
 
   const root = new THREE.Group();
-  root.position.y = card ? 0 : 0.05;
+  root.position.y = 0;
   scene.add(root);
 
   const darkMat = new THREE.MeshStandardMaterial({

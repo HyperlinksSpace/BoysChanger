@@ -157,12 +157,12 @@ export function ProfileModal({ open, onClose, profile, onSaved, tr }: Props) {
                 />
               ) : (
                 <VoiceScene3D
-                  density="compact"
+                  density="card"
                   variant={avatarForm(previewCompose)}
                   accent={avatarAccent(previewCompose)}
                   motion={avatarMotion(previewCompose)}
                   accessory={previewCompose.accessory}
-                  className="voice-scene-3d compact"
+                  className="voice-scene-3d card"
                   lazy={false}
                   priority="hero"
                 />

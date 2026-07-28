@@ -1178,6 +1178,7 @@ input[type='range']::-webkit-slider-thumb {
   box-shadow: 0 0 28px rgba(var(--accent-rgb), 0.3);
 }
 
+.profile-preview-art .voice-scene-3d,
 .profile-preview-art .profile-avatar,
 .profile-preview-art .scene-chip {
   position: absolute;
@@ -1186,6 +1187,13 @@ input[type='range']::-webkit-slider-thumb {
   height: 100%;
   min-height: 0 !important;
   border-radius: inherit;
+}
+
+.profile-preview-art canvas {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 @keyframes profile-rim-spin {
@@ -1833,6 +1841,13 @@ input[type='range']::-webkit-slider-thumb {
   width: 100%;
   height: 100%;
   min-height: 0 !important;
+}
+
+.dash-voice-3d .scene-chip-stage {
+  background:
+    radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--chip, var(--accent)) 22%, transparent), transparent 55%),
+    radial-gradient(circle at 70% 75%, color-mix(in srgb, var(--chip, var(--accent)) 12%, transparent), transparent 50%),
+    #000;
 }
 
 .dash-studio-row {
