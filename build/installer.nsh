@@ -32,6 +32,7 @@
 
   boys_auto_update:
     DetailPrint "Auto-update install — skipping VB-CABLE and reboot flag"
+    SetRebootFlag false
     Goto boys_install_done
 
   boys_fresh_install:

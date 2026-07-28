@@ -11,7 +11,7 @@ import {
   systemPreferences,
 } from 'electron';
 import path from 'node:path';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { autoUpdater } from 'electron-updater';
 import {
@@ -525,20 +525,69 @@ function applyDownloadedUpdate(reason: string) {
     silent: true,
     forceRunAfter: true,
   });
+
+  // UAC + per-machine NSIS often finishes without relaunching. Schedule a
+  // detached watcher that starts the app again after the installer exits.
+  schedulePostUpdateRelaunch();
+
   // setImmediate: let IPC/status flush before the process tears down.
-  // Silent + force-run: NSIS must have runAfterFinish enabled and must NOT
-  // SetRebootFlag on --updated installs (see build/installer.nsh).
   setImmediate(() => {
     try {
+      // Silent install (UAC may still appear for per-machine). Force-run asks
+      // NSIS to start the app; schedulePostUpdateRelaunch is the safety net.
       autoUpdater.quitAndInstall(true, true);
     } catch (err) {
       logError('updater', 'quitAndInstall failed', { err: String(err) });
       sendUpdateStatus('error', downloadedUpdateVersion, String(err));
-      // Last resort: open the pending installer UI so the user is not stuck.
       void openPendingInstallerFallback();
     }
   });
   return { ok: true as const, version: downloadedUpdateVersion };
+}
+
+/**
+ * Survives app quit: waits for the elevated installer, then launches the
+ * installed BoysChanger.exe so Reload never leaves the user on a dead desktop.
+ */
+function schedulePostUpdateRelaunch() {
+  const exe = process.execPath;
+  logInfo('updater', 'schedule post-update relaunch', { exe, platform: process.platform });
+  try {
+    if (process.platform === 'win32') {
+      const cmdPath = path.join(
+        app.getPath('temp'),
+        `boyschanger-relaunch-${process.pid}-${Date.now()}.cmd`,
+      );
+      // Wait ~18s for UAC + silent NSIS, then start (idempotent if already running).
+      const body = [
+        '@echo off',
+        'setlocal',
+        `set "APP=${exe.replace(/"/g, '')}"`,
+        'ping -n 19 127.0.0.1 >nul',
+        'if not exist "%APP%" exit /b 0',
+        'start "" "%APP%"',
+        'del "%~f0" >nul 2>&1',
+        '',
+      ].join('\r\n');
+      fs.writeFileSync(cmdPath, body, 'utf8');
+      const child = spawn('cmd.exe', ['/d', '/s', '/c', cmdPath], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      child.unref();
+      return;
+    }
+    if (process.platform === 'darwin') {
+      const child = spawn('sh', ['-c', `sleep 14; open -n "${exe}"`], {
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+    }
+  } catch (err) {
+    logError('updater', 'failed to schedule relaunch', { err: String(err) });
+  }
 }
 
 async function openPendingInstallerFallback() {
@@ -550,13 +599,17 @@ async function openPendingInstallerFallback() {
       return;
     }
     const info = JSON.parse(fs.readFileSync(infoPath, 'utf8')) as { fileName?: string };
-    const exe = info.fileName ? path.join(pendingDir, info.fileName) : '';
-    if (!exe || !fs.existsSync(exe)) {
-      logWarn('updater', 'pending installer missing', { exe });
+    const installer = info.fileName ? path.join(pendingDir, info.fileName) : '';
+    if (!installer || !fs.existsSync(installer)) {
+      logWarn('updater', 'pending installer missing', { installer });
       return;
     }
-    logInfo('updater', 'opening pending installer fallback', { exe });
-    await shell.openPath(exe);
+    logInfo('updater', 'opening pending installer fallback', { installer });
+    // Prefer updated+force-run flags when launching manually.
+    spawn(installer, ['--updated', '--force-run'], {
+      detached: true,
+      stdio: 'ignore',
+    }).unref();
   } catch (err) {
     logError('updater', 'fallback installer open failed', { err: String(err) });
   }
