@@ -27,7 +27,7 @@ import {
   saveVoicePreset,
   type VoicePreset,
 } from './audio/voicePresets';
-import { DEFAULT_PROFILE, loadUserProfile, SKIN_OPTIONS, type UserProfile } from './profile/userProfile';
+import { DEFAULT_PROFILE, loadUserProfile, type UserProfile } from './profile/userProfile';
 import { LOCALES, detectLocale, t, type Locale, type MessageKey } from './i18n';
 import './styles.css';
 
@@ -702,14 +702,6 @@ export default function App() {
     return 'gear';
   };
 
-  const profileAccent = (() => {
-    const av = profile.avatar;
-    if (av.mode === 'compose') {
-      return SKIN_OPTIONS.find((s) => s.id === av.skin)?.color || '#8dff6a';
-    }
-    return '#8dff6a';
-  })();
-
   const prehearPanel = (
     <PrehearPanel
       state={prehear}
@@ -934,18 +926,7 @@ export default function App() {
             aria-label={tr('profileOpen')}
             onClick={() => setProfileOpen(true)}
           >
-            {profile.avatar.mode === 'upload' && profile.avatar.previewUrl ? (
-              <ProfileAvatar avatar={profile.avatar} className="profile-avatar nav" />
-            ) : (
-              <VoiceScene3D
-                density="card"
-                variant="logo"
-                accent={profileAccent}
-                className="voice-scene-3d card"
-                lazy={false}
-                priority="nav"
-              />
-            )}
+            <ProfileAvatar avatar={profile.avatar} className="profile-avatar nav" />
           </button>
           {profile.displayName.trim() ? (
             <span className="nav-profile-name" title={profile.displayName}>

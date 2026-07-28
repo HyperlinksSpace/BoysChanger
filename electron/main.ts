@@ -592,7 +592,10 @@ function schedulePostUpdateRelaunch() {
 
 async function openPendingInstallerFallback() {
   try {
-    const pendingDir = path.join(app.getPath('localAppData'), 'boyschanger-updater', 'pending');
+    const localAppData =
+      process.env.LOCALAPPDATA ||
+      path.join(path.dirname(app.getPath('appData')), 'Local');
+    const pendingDir = path.join(localAppData, 'boyschanger-updater', 'pending');
     const infoPath = path.join(pendingDir, 'update-info.json');
     if (!fs.existsSync(infoPath)) {
       logWarn('updater', 'no update-info.json for fallback');

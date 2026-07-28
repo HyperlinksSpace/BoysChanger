@@ -19,7 +19,6 @@ import {
   type UserProfile,
 } from '../profile/userProfile';
 import { ProfileAvatar, SkinSwatch } from './ProfileAvatar';
-import { VoiceScene3D } from './VoiceScene3D';
 
 type Props = {
   open: boolean;
@@ -146,20 +145,10 @@ export function ProfileModal({ open, onClose, profile, onSaved, tr }: Props) {
 
           <div className="profile-preview-row">
             <div className="profile-preview-art">
-              {mode === 'upload' && uploadPreview ? (
-                <ProfileAvatar
-                  avatar={{ mode: 'upload', previewUrl: uploadPreview }}
-                  className="profile-avatar xl"
-                />
-              ) : (
-                <VoiceScene3D
-                  density="compact"
-                  variant="logo"
-                  accent={SKIN_OPTIONS.find((s) => s.id === draft.skin)?.color || '#8dff6a'}
-                  className="voice-scene-3d compact"
-                  priority="hero"
-                />
-              )}
+              <ProfileAvatar
+                avatar={mode === 'upload' && uploadPreview ? { mode: 'upload', previewUrl: uploadPreview } : draft}
+                className="profile-avatar xl"
+              />
             </div>
             <div className="profile-preview-meta">
               <label>

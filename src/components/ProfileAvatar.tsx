@@ -165,6 +165,8 @@ export function ProfileAvatar({ avatar, className, title }: Props) {
   if (avatar.mode === 'upload' && previewUrl && !uploadBroken) {
     return (
       <span className={className || 'profile-avatar'} title={title}>
+        <span className="profile-avatar-stage" />
+        <span className="profile-avatar-rim" />
         <img
           src={previewUrl}
           alt=""
@@ -178,6 +180,8 @@ export function ProfileAvatar({ avatar, className, title }: Props) {
 
   return (
     <span className={className || 'profile-avatar'} title={title}>
+      <span className="profile-avatar-stage" />
+      <span className="profile-avatar-rim" />
       <ComposedSvg avatar={composed} />
     </span>
   );
