@@ -28,7 +28,14 @@ import {
   saveVoicePreset,
   type VoicePreset,
 } from './audio/voicePresets';
-import { DEFAULT_PROFILE, loadUserProfile, type UserProfile } from './profile/userProfile';
+import {
+  DEFAULT_PROFILE,
+  avatarAccent,
+  avatarForm,
+  avatarMotion,
+  loadUserProfile,
+  type UserProfile,
+} from './profile/userProfile';
 import { LOCALES, detectLocale, t, type Locale, type MessageKey } from './i18n';
 import './styles.css';
 
@@ -932,7 +939,20 @@ export default function App() {
             aria-label={tr('profileOpen')}
             onClick={() => setProfileOpen(true)}
           >
-            <ProfileAvatar avatar={profile.avatar} className="profile-avatar nav" />
+            {profile.avatar.mode === 'upload' && profile.avatar.previewUrl ? (
+              <ProfileAvatar avatar={profile.avatar} className="profile-avatar nav" />
+            ) : (
+              <VoiceScene3D
+                density="card"
+                variant={avatarForm(profile.avatar)}
+                accent={avatarAccent(profile.avatar)}
+                motion={avatarMotion(profile.avatar)}
+                accessory={profile.avatar.mode === 'compose' ? profile.avatar.accessory : 'none'}
+                className="voice-scene-3d card"
+                lazy={false}
+                priority="nav"
+              />
+            )}
           </button>
           {profile.displayName.trim() ? (
             <span className="nav-profile-name" title={profile.displayName}>

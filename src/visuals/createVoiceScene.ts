@@ -25,6 +25,10 @@ export type VoiceSceneOptions = {
   accent?: string;
   density?: SceneDensity;
   variant?: SceneVariant;
+  /** 1 = default dashboard pace; higher = livelier. */
+  motion?: number;
+  /** Extra ornaments for profile / aura. */
+  accessory?: 'none' | 'headset' | 'earring' | 'bow' | 'spark';
 };
 
 function hashHue(seed: string): number {
@@ -76,6 +80,8 @@ export function createVoiceScene(
   const accent = new THREE.Color(options.accent || '#8dff6a');
   const density = options.density || 'full';
   const variant = options.variant || 'mic';
+  const motion = Math.max(0.35, Math.min(2.2, options.motion ?? 1));
+  const accessory = options.accessory || 'none';
   const card = density === 'card';
   const compact = density === 'compact' || card;
 
@@ -309,6 +315,33 @@ export function createVoiceScene(
     s.position.set(Math.cos(a) * 1.35, Math.sin(a * 1.3) * 0.35, Math.sin(a) * 1.1);
   });
 
+  if (accessory === 'headset') {
+    addRing(1.15, 0.06, Math.PI / 2.05, 0, limeMat);
+    addRing(1.7, 0.03, Math.PI / 1.55, 0.4, glowMats[1]);
+  } else if (accessory === 'spark') {
+    addSpark(new THREE.Color('#ffffff'), 0.18).position.set(0.95, 0.85, 0.4);
+    addSpark(accent.clone().offsetHSL(0.2, 0, 0.1), 0.14).position.set(-1.05, 0.55, 0.2);
+  } else if (accessory === 'earring') {
+    const gold = new THREE.Color('#ffd166');
+    addSpark(gold, 0.12).position.set(1.15, -0.35, 0.35);
+    addSpark(gold, 0.1).position.set(-1.15, -0.35, 0.35);
+  } else if (accessory === 'bow') {
+    const pink = new THREE.Color('#ff5cad');
+    const bowL = new THREE.Mesh(new THREE.TetrahedronGeometry(0.28, 0), glowMats[1]);
+    bowL.material = new THREE.MeshStandardMaterial({
+      color: pink,
+      metalness: 0.2,
+      roughness: 0.35,
+      emissive: pink,
+      emissiveIntensity: 0.75,
+    });
+    bowL.position.set(-0.35, 1.05, 0.2);
+    const bowR = bowL.clone();
+    bowR.position.set(0.35, 1.05, 0.2);
+    root.add(bowL, bowR);
+    floaters.push(bowL, bowR);
+  }
+
   let particles: THREE.Points | null = null;
   {
     const count = card ? 72 : compact ? 140 : 240;
@@ -382,13 +415,13 @@ export function createVoiceScene(
     raf = 0;
     if (!visible) return;
     const t = clock.getElapsedTime();
-    root.rotation.y = t * (card ? 0.7 : 0.4);
-    root.rotation.x = Math.sin(t * 0.35) * (card ? 0.16 : 0.08);
+    root.rotation.y = t * (card ? 0.7 : 0.4) * motion;
+    root.rotation.x = Math.sin(t * 0.35 * motion) * (card ? 0.16 : 0.08);
     spin.forEach((o, i) => {
-      o.rotation.z = t * (0.25 + i * 0.06);
+      o.rotation.z = t * (0.25 + i * 0.06) * motion;
     });
     floaters.forEach((o, i) => {
-      const a = t * 0.85 + i;
+      const a = t * 0.85 * motion + i;
       if (variant === 'wave') {
         o.scale.y = 0.65 + Math.abs(Math.sin(a * 2.2)) * 1.55;
       } else {
@@ -398,7 +431,7 @@ export function createVoiceScene(
         o.position.y = Math.sin(a * 1.4) * (card ? 0.35 : 0.45);
       }
     });
-    if (particles) particles.rotation.y = t * 0.05;
+    if (particles) particles.rotation.y = t * 0.05 * motion;
     renderer.render(scene, camera);
     raf = requestAnimationFrame(tick);
   };

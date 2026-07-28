@@ -1,14 +1,21 @@
 /** Local user profile (IndexedDB + localStorage). Cloud sync later. */
 
+import type { SceneVariant } from '../visuals/createVoiceScene';
+
 export type SkinId = 'peach' | 'warm' | 'deep' | 'cool' | 'lime' | 'pink' | 'cyan' | 'void';
 export type HairId = 'none' | 'short' | 'wavy' | 'spike' | 'bun' | 'cap';
 export type EyesId = 'round' | 'cat' | 'star' | 'shades';
 export type AccId = 'none' | 'headset' | 'earring' | 'bow' | 'spark';
 export type MoodId = 'smile' | 'cool' | 'laugh' | 'neutral';
+export type FormId = SceneVariant;
 
 export type ComposedAvatar = {
   mode: 'compose';
+  /** Neon accent of the 3D avatar (dashboard hero language). */
   skin: SkinId;
+  /** 3D shape / form — same variants as dashboard scenes. */
+  form: FormId;
+  /** Legacy cartoon fields kept for older saves; UI maps them into form when missing. */
   hair: HairId;
   eyes: EyesId;
   accessory: AccId;
@@ -46,6 +53,18 @@ export const SKIN_OPTIONS: { id: SkinId; label: string; color: string }[] = [
   { id: 'void', label: 'Void', color: '#2a3340' },
 ];
 
+export const FORM_OPTIONS: { id: FormId; label: string }[] = [
+  { id: 'logo', label: 'Crystal mark' },
+  { id: 'orb', label: 'Orb' },
+  { id: 'crystal', label: 'Shard' },
+  { id: 'ring', label: 'Rings' },
+  { id: 'mic', label: 'Mic' },
+  { id: 'speaker', label: 'Speaker' },
+  { id: 'flask', label: 'Flask' },
+  { id: 'gear', label: 'Gear' },
+  { id: 'wave', label: 'Wave' },
+];
+
 export const HAIR_OPTIONS: { id: HairId; label: string; color: string }[] = [
   { id: 'none', label: 'None', color: 'transparent' },
   { id: 'short', label: 'Short', color: '#1a1a1a' },
@@ -77,9 +96,26 @@ export const MOOD_OPTIONS: { id: MoodId; label: string }[] = [
   { id: 'neutral', label: 'Neutral' },
 ];
 
+const FORM_IDS = new Set<string>(FORM_OPTIONS.map((f) => f.id));
+
+function hairToForm(hair?: HairId): FormId {
+  if (hair === 'short') return 'mic';
+  if (hair === 'wavy') return 'wave';
+  if (hair === 'spike') return 'crystal';
+  if (hair === 'bun') return 'orb';
+  if (hair === 'cap') return 'gear';
+  return 'logo';
+}
+
+function normalizeForm(raw: unknown, hair?: HairId): FormId {
+  if (typeof raw === 'string' && FORM_IDS.has(raw)) return raw as FormId;
+  return hairToForm(hair);
+}
+
 export const DEFAULT_COMPOSE: ComposedAvatar = {
   mode: 'compose',
   skin: 'lime',
+  form: 'logo',
   hair: 'spike',
   eyes: 'star',
   accessory: 'headset',
@@ -91,6 +127,25 @@ export const DEFAULT_PROFILE: UserProfile = {
   avatar: { ...DEFAULT_COMPOSE },
   updatedAt: 0,
 };
+
+export function avatarAccent(avatar: ProfileAvatar): string {
+  if (avatar.mode === 'upload') return '#8dff6a';
+  return SKIN_OPTIONS.find((s) => s.id === avatar.skin)?.color || '#8dff6a';
+}
+
+export function avatarForm(avatar: ProfileAvatar): FormId {
+  if (avatar.mode === 'upload') return 'logo';
+  return normalizeForm(avatar.form, avatar.hair);
+}
+
+/** Spin / float intensity for the 3D avatar (mood → motion). */
+export function avatarMotion(avatar: ProfileAvatar): number {
+  if (avatar.mode !== 'compose') return 1;
+  if (avatar.mood === 'laugh') return 1.55;
+  if (avatar.mood === 'cool') return 0.85;
+  if (avatar.mood === 'neutral') return 0.55;
+  return 1;
+}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -136,6 +191,19 @@ async function idbDeleteBlob(key: string): Promise<void> {
   });
 }
 
+function normalizeCompose(avatar: Partial<ComposedAvatar>): ComposedAvatar {
+  const hair = avatar.hair || DEFAULT_COMPOSE.hair;
+  return {
+    mode: 'compose',
+    skin: avatar.skin || DEFAULT_COMPOSE.skin,
+    form: normalizeForm(avatar.form, hair),
+    hair,
+    eyes: avatar.eyes || DEFAULT_COMPOSE.eyes,
+    accessory: avatar.accessory || DEFAULT_COMPOSE.accessory,
+    mood: avatar.mood || DEFAULT_COMPOSE.mood,
+  };
+}
+
 function readMeta(): UserProfile {
   try {
     const raw = localStorage.getItem(META_KEY);
@@ -145,14 +213,7 @@ function readMeta(): UserProfile {
     if (avatar?.mode === 'compose') {
       return {
         displayName: typeof parsed.displayName === 'string' ? parsed.displayName : '',
-        avatar: {
-          mode: 'compose',
-          skin: avatar.skin || DEFAULT_COMPOSE.skin,
-          hair: avatar.hair || DEFAULT_COMPOSE.hair,
-          eyes: avatar.eyes || DEFAULT_COMPOSE.eyes,
-          accessory: avatar.accessory || DEFAULT_COMPOSE.accessory,
-          mood: avatar.mood || DEFAULT_COMPOSE.mood,
-        },
+        avatar: normalizeCompose(avatar),
         updatedAt: parsed.updatedAt || 0,
       };
     }
@@ -199,7 +260,7 @@ export async function saveComposedProfile(
   await idbDeleteBlob(UPLOAD_KEY).catch(() => undefined);
   const next: UserProfile = {
     displayName: displayName.trim().slice(0, 32),
-    avatar: { ...avatar, mode: 'compose' },
+    avatar: normalizeCompose(avatar),
     updatedAt: Date.now(),
   };
   writeMeta(next);

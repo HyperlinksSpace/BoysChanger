@@ -3,22 +3,25 @@ import type { MessageKey } from '../i18n';
 import {
   ACC_OPTIONS,
   DEFAULT_COMPOSE,
-  EYES_OPTIONS,
-  HAIR_OPTIONS,
+  FORM_OPTIONS,
   MOOD_OPTIONS,
   SKIN_OPTIONS,
+  avatarAccent,
+  avatarForm,
+  avatarMotion,
   clearUploadedAvatar,
   saveComposedProfile,
   saveUploadedAvatar,
   type AccId,
   type ComposedAvatar,
-  type EyesId,
-  type HairId,
+  type FormId,
   type MoodId,
   type SkinId,
   type UserProfile,
 } from '../profile/userProfile';
 import { ProfileAvatar, SkinSwatch } from './ProfileAvatar';
+import { SceneChip } from './SceneChip';
+import { VoiceScene3D } from './VoiceScene3D';
 
 type Props = {
   open: boolean;
@@ -62,8 +65,7 @@ export function ProfileModal({ open, onClose, profile, onSaved, tr }: Props) {
   if (!open) return null;
 
   const setSkin = (skin: SkinId) => setDraft((d) => ({ ...d, skin }));
-  const setHair = (hair: HairId) => setDraft((d) => ({ ...d, hair }));
-  const setEyes = (eyes: EyesId) => setDraft((d) => ({ ...d, eyes }));
+  const setForm = (form: FormId) => setDraft((d) => ({ ...d, form }));
   const setAcc = (accessory: AccId) => setDraft((d) => ({ ...d, accessory }));
   const setMood = (mood: MoodId) => setDraft((d) => ({ ...d, mood }));
 
@@ -124,6 +126,9 @@ export function ProfileModal({ open, onClose, profile, onSaved, tr }: Props) {
     }
   };
 
+  const previewCompose: ComposedAvatar = draft;
+  const showUpload = mode === 'upload' && Boolean(uploadPreview);
+
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -145,10 +150,23 @@ export function ProfileModal({ open, onClose, profile, onSaved, tr }: Props) {
 
           <div className="profile-preview-row">
             <div className="profile-preview-art">
-              <ProfileAvatar
-                avatar={mode === 'upload' && uploadPreview ? { mode: 'upload', previewUrl: uploadPreview } : draft}
-                className="profile-avatar xl"
-              />
+              {showUpload ? (
+                <ProfileAvatar
+                  avatar={{ mode: 'upload', previewUrl: uploadPreview }}
+                  className="profile-avatar xl"
+                />
+              ) : (
+                <VoiceScene3D
+                  density="compact"
+                  variant={avatarForm(previewCompose)}
+                  accent={avatarAccent(previewCompose)}
+                  motion={avatarMotion(previewCompose)}
+                  accessory={previewCompose.accessory}
+                  className="voice-scene-3d compact"
+                  lazy={false}
+                  priority="hero"
+                />
+              )}
             </div>
             <div className="profile-preview-meta">
               <label>
@@ -215,32 +233,20 @@ export function ProfileModal({ open, onClose, profile, onSaved, tr }: Props) {
               </section>
 
               <section>
-                <h3>{tr('profileHair')}</h3>
-                <div className="profile-option-row wrap">
-                  {HAIR_OPTIONS.map((h) => (
+                <h3>{tr('profileForm')}</h3>
+                <div className="profile-form-grid">
+                  {FORM_OPTIONS.map((f) => (
                     <button
-                      key={h.id}
+                      key={f.id}
                       type="button"
-                      className={draft.hair === h.id ? 'chip active' : 'chip'}
-                      onClick={() => setHair(h.id)}
+                      className={`profile-form-chip ${draft.form === f.id ? 'active' : ''}`}
+                      onClick={() => setForm(f.id)}
+                      title={tr(`profileForm_${f.id}` as MessageKey)}
                     >
-                      {tr(`profileHair_${h.id}` as MessageKey)}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h3>{tr('profileEyes')}</h3>
-                <div className="profile-option-row wrap">
-                  {EYES_OPTIONS.map((e) => (
-                    <button
-                      key={e.id}
-                      type="button"
-                      className={draft.eyes === e.id ? 'chip active' : 'chip'}
-                      onClick={() => setEyes(e.id)}
-                    >
-                      {tr(`profileEyes_${e.id}` as MessageKey)}
+                      <span className="profile-form-3d" aria-hidden>
+                        <SceneChip variant={f.id} accent={avatarAccent(draft)} />
+                      </span>
+                      <span>{tr(`profileForm_${f.id}` as MessageKey)}</span>
                     </button>
                   ))}
                 </div>

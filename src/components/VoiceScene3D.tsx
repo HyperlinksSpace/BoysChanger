@@ -17,6 +17,9 @@ type Props = {
   lazy?: boolean;
   /** Pool priority — heroes/nav keep slots; cards yield. */
   priority?: ScenePriority;
+  /** Animation pace multiplier (profile mood). */
+  motion?: number;
+  accessory?: 'none' | 'headset' | 'earring' | 'bow' | 'spark';
 };
 
 export function VoiceScene3D({
@@ -26,6 +29,8 @@ export function VoiceScene3D({
   variant = 'mic',
   lazy,
   priority,
+  motion = 1,
+  accessory = 'none',
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const handle = useRef<VoiceSceneHandle | null>(null);
@@ -92,6 +97,8 @@ export function VoiceScene3D({
         accent: accentRef.current,
         density,
         variant,
+        motion,
+        accessory,
       });
       canvas = el.querySelector('canvas');
       setSceneReady(Boolean(canvas));
@@ -132,7 +139,7 @@ export function VoiceScene3D({
       handle.current = null;
       setSceneReady(false);
     };
-  }, [hasSlot, density, variant]);
+  }, [hasSlot, density, variant, motion, accessory]);
 
   useEffect(() => {
     if (accent) handle.current?.setAccent(accent);
