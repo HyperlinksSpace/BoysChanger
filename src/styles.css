@@ -2392,6 +2392,19 @@ input[type='range']::-webkit-slider-thumb {
 
 .home-hub .prehear-block {
   margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.home-hub .prehear-title {
+  display: none;
+}
+
+.home-hub .prehear-head {
+  justify-content: flex-end;
 }
 
 @media (max-width: 1100px) {
