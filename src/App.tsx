@@ -17,6 +17,7 @@ import { VoiceLibraryPanel } from './components/VoiceLibraryPanel';
 import { ProfileAvatar } from './components/ProfileAvatar';
 import { ProfileModal } from './components/ProfileModal';
 import { VoiceReactionPicker } from './components/VoiceReactionPicker';
+import { SceneChip } from './components/SceneChip';
 import { VoiceScene3D } from './components/VoiceScene3D';
 import { accentFromSeed, variantFromSeed, variantForVoicePreset, type SceneVariant } from './visuals/createVoiceScene';
 import { getSoundArrayBuffer, listSounds, type LibrarySound } from './audio/soundLibrary';
@@ -951,13 +952,9 @@ export default function App() {
             onClick={() => setTab(id)}
           >
             <span className="nav-icon-3d" aria-hidden>
-              <VoiceScene3D
-                density="card"
+              <SceneChip
                 variant={navSceneVariant(id)}
                 accent="#8dff6a"
-                className="voice-scene-3d card"
-                lazy={false}
-                priority={tab === id ? 'nav' : 'card'}
               />
             </span>
             <span className="nav-label">{label}</span>

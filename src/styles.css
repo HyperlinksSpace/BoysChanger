@@ -1305,10 +1305,11 @@ input[type='range']::-webkit-slider-thumb {
   z-index: 0;
 }
 
-/* When live WebGL is up, hide the CSS twin so only one style shows. */
+/* When live WebGL is up, fade the CSS twin — keep it painted until canvas exists. */
 .voice-scene-3d[data-live='1'] .scene-chip.underlay {
   opacity: 0;
   visibility: hidden;
+  transition: opacity 120ms ease;
 }
 
 .scene-chip-stage {

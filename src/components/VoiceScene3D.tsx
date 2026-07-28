@@ -76,9 +76,14 @@ export function VoiceScene3D({
     };
   }, [inView, poolPriority, recoverKey]);
 
+  const [sceneReady, setSceneReady] = useState(false);
+
   useEffect(() => {
     const el = mountRef.current;
-    if (!el || !hasSlot) return;
+    if (!el || !hasSlot) {
+      setSceneReady(false);
+      return;
+    }
 
     let canvas: HTMLCanvasElement | null = null;
     try {
@@ -89,8 +94,10 @@ export function VoiceScene3D({
         variant,
       });
       canvas = el.querySelector('canvas');
+      setSceneReady(Boolean(canvas));
     } catch {
       handle.current = null;
+      setSceneReady(false);
       setHasSlot(false);
       releaseRef.current?.();
       releaseRef.current = null;
@@ -102,6 +109,7 @@ export function VoiceScene3D({
       event.preventDefault();
       handle.current?.dispose();
       handle.current = null;
+      setSceneReady(false);
       setHasSlot(false);
       releaseRef.current?.();
       releaseRef.current = null;
@@ -122,6 +130,7 @@ export function VoiceScene3D({
       window.clearTimeout(t2);
       handle.current?.dispose();
       handle.current = null;
+      setSceneReady(false);
     };
   }, [hasSlot, density, variant]);
 
@@ -136,7 +145,7 @@ export function VoiceScene3D({
       ref={mountRef}
       className={className || 'voice-scene-3d'}
       data-variant={variant}
-      data-live={hasSlot ? '1' : '0'}
+      data-live={sceneReady ? '1' : '0'}
       aria-hidden
     >
       {/* Always-on colourful animated variant — visible until / if WebGL mounts. */}
