@@ -155,6 +155,7 @@ export default function App() {
   const [version, setVersion] = useState(APP_VERSION);
   const [updateNote, setUpdateNote] = useState('');
   const [updateReady, setUpdateReady] = useState(false);
+  const [updateApplying, setUpdateApplying] = useState(false);
   const [prehear, setPrehear] = useState<PrehearState>({
     ready: false,
     playing: false,
@@ -264,14 +265,18 @@ export default function App() {
             setUpdateNote(t(loc, 'updateAvailable', { version: payload.version ?? '' }) + pct);
           } else if (payload.status === 'downloaded') {
             setUpdateReady(true);
+            setUpdateApplying(false);
             setUpdateNote(t(loc, 'updateDownloaded', { version: payload.version ?? '' }));
           } else if (payload.status === 'applying') {
             setUpdateReady(true);
+            setUpdateApplying(true);
             setUpdateNote(t(loc, 'updateApplying', { version: payload.version ?? '' }));
           } else if (payload.status === 'not-available') {
             setUpdateReady(false);
+            setUpdateApplying(false);
             setUpdateNote(t(loc, 'updateLatest'));
           } else if (payload.status === 'error') {
+            setUpdateApplying(false);
             const net =
               payload.message === 'network' ||
               payload.message === 'network-soft' ||
@@ -1000,6 +1005,7 @@ export default function App() {
               className={`secondary update-btn ${updateReady ? 'ready' : ''}`}
               onClick={() => {
                 if (updateReady) {
+                  setUpdateApplying(true);
                   setUpdateNote(tr('updateApplying', { version: '' }));
                   void window.boysChanger?.applyUpdate?.();
                   return;
@@ -1519,6 +1525,19 @@ export default function App() {
         onSaved={setProfile}
         tr={tr}
       />
+
+      {updateApplying ? (
+        <div className="update-overlay" role="status" aria-live="polite">
+          <div className="update-overlay-card">
+            <div className="update-overlay-orb" aria-hidden />
+            <h2>{tr('updateApplying')}</h2>
+            <p>{tr('updateApplyingDetail')}</p>
+            <div className="update-overlay-bar" aria-hidden>
+              <span />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <VoiceReactionPicker
         open={Boolean(voicePicker)}

@@ -527,11 +527,12 @@ function applyDownloadedUpdate(reason: string) {
   });
 
   // UAC + per-machine NSIS often finishes without relaunching. Schedule a
-  // detached watcher that starts the app again after the installer exits.
+  // fully hidden watcher that starts the app again after the installer exits.
   schedulePostUpdateRelaunch();
 
-  // setImmediate: let IPC/status flush before the process tears down.
-  setImmediate(() => {
+  // Brief delay so the renderer can paint the in-app “installing” overlay
+  // before the process tears down — no external console/updater UI.
+  setTimeout(() => {
     try {
       // Silent install (UAC may still appear for per-machine). Force-run asks
       // NSIS to start the app; schedulePostUpdateRelaunch is the safety net.
@@ -541,36 +542,41 @@ function applyDownloadedUpdate(reason: string) {
       sendUpdateStatus('error', downloadedUpdateVersion, String(err));
       void openPendingInstallerFallback();
     }
-  });
+  }, 480);
   return { ok: true as const, version: downloadedUpdateVersion };
 }
 
 /**
- * Survives app quit: waits for the elevated installer, then launches the
- * installed BoysChanger.exe so Reload never leaves the user on a dead desktop.
+ * Survives app quit: waits for the elevated silent NSIS install, then launches
+ * BoysChanger again. Must stay fully hidden — no cmd/PowerShell console for end users.
  */
 function schedulePostUpdateRelaunch() {
   const exe = process.execPath;
   logInfo('updater', 'schedule post-update relaunch', { exe, platform: process.platform });
   try {
     if (process.platform === 'win32') {
-      const cmdPath = path.join(
+      // wscript + VBS Run style 0 = no console window (unlike .cmd / powershell).
+      const vbsPath = path.join(
         app.getPath('temp'),
-        `boyschanger-relaunch-${process.pid}-${Date.now()}.cmd`,
+        `boyschanger-relaunch-${process.pid}-${Date.now()}.vbs`,
       );
-      // Wait ~18s for UAC + silent NSIS, then start (idempotent if already running).
+      const exeEsc = exe.replace(/"/g, '""');
       const body = [
-        '@echo off',
-        'setlocal',
-        `set "APP=${exe.replace(/"/g, '')}"`,
-        'ping -n 19 127.0.0.1 >nul',
-        'if not exist "%APP%" exit /b 0',
-        'start "" "%APP%"',
-        'del "%~f0" >nul 2>&1',
+        'On Error Resume Next',
+        'Dim sh, fso, exe',
+        'Set sh = CreateObject("WScript.Shell")',
+        'Set fso = CreateObject("Scripting.FileSystemObject")',
+        `exe = "${exeEsc}"`,
+        // ~18s for UAC + silent NSIS; force-run may already have started the app.
+        'WScript.Sleep 18000',
+        'If fso.FileExists(exe) Then',
+        '  sh.Run """" & exe & """", 0, False',
+        'End If',
+        'fso.DeleteFile WScript.ScriptFullName, True',
         '',
       ].join('\r\n');
-      fs.writeFileSync(cmdPath, body, 'utf8');
-      const child = spawn('cmd.exe', ['/d', '/s', '/c', cmdPath], {
+      fs.writeFileSync(vbsPath, body, 'utf8');
+      const child = spawn('wscript.exe', ['//B', '//Nologo', vbsPath], {
         detached: true,
         stdio: 'ignore',
         windowsHide: true,
@@ -608,10 +614,11 @@ async function openPendingInstallerFallback() {
       return;
     }
     logInfo('updater', 'opening pending installer fallback', { installer });
-    // Prefer updated+force-run flags when launching manually.
-    spawn(installer, ['--updated', '--force-run'], {
+    // Silent NSIS (/S) + force-run — no installer UI / console for end users.
+    spawn(installer, ['/S', '--updated', '--force-run'], {
       detached: true,
       stdio: 'ignore',
+      windowsHide: true,
     }).unref();
   } catch (err) {
     logError('updater', 'fallback installer open failed', { err: String(err) });
