@@ -281,6 +281,30 @@ function createWindow() {
     applyChangerStatus(false);
   });
 
+  // If the UI failed to load (e.g. files still settling after an update), retry
+  // once and never leave the user staring at an empty black window.
+  mainWindow.webContents.on('did-fail-load', (_event, code, desc, url, isMainFrame) => {
+    if (!isMainFrame) return;
+    logError('window', 'did-fail-load', { code, desc, url });
+    setTimeout(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      try {
+        if (VITE_DEV_SERVER_URL) mainWindow.loadURL(VITE_DEV_SERVER_URL);
+        else mainWindow.loadFile(path.join(process.env.DIST!, 'index.html'));
+      } catch (err) {
+        logError('window', 'reload after fail failed', { err: String(err) });
+      }
+      if (!mainWindow.isVisible()) mainWindow.show();
+    }, 900);
+  });
+
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      logWarn('window', 'ready-to-show timed out — forcing show');
+      mainWindow.show();
+    }
+  }, 5000);
+
   mainWindow.on('close', (e) => {
     if (isQuitting || process.platform === 'darwin') return;
     e.preventDefault();
@@ -295,7 +319,11 @@ function createWindow() {
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(process.env.DIST!, 'index.html'));
+    const indexHtml = path.join(process.env.DIST!, 'index.html');
+    if (!fs.existsSync(indexHtml)) {
+      logError('window', 'missing index.html after update', { indexHtml });
+    }
+    mainWindow.loadFile(indexHtml);
   }
 }
 
@@ -526,9 +554,13 @@ function applyDownloadedUpdate(reason: string) {
     forceRunAfter: true,
   });
 
+  // Must quit for real (not hide-to-tray), or NSIS cannot replace files and the
+  // next launch loads a half-written app → black window.
+  isQuitting = true;
+
   // UAC + per-machine NSIS often finishes without relaunching. Schedule a
   // fully hidden watcher that starts the app again after the installer exits.
-  schedulePostUpdateRelaunch();
+  schedulePostUpdateRelaunch(downloadedUpdateVersion);
 
   // Brief delay so the renderer can paint the in-app “installing” overlay
   // before the process tears down — no external console/updater UI.
@@ -539,6 +571,7 @@ function applyDownloadedUpdate(reason: string) {
       autoUpdater.quitAndInstall(true, true);
     } catch (err) {
       logError('updater', 'quitAndInstall failed', { err: String(err) });
+      isQuitting = false;
       sendUpdateStatus('error', downloadedUpdateVersion, String(err));
       void openPendingInstallerFallback();
     }
@@ -547,30 +580,71 @@ function applyDownloadedUpdate(reason: string) {
 }
 
 /**
- * Survives app quit: waits for the elevated silent NSIS install, then launches
- * BoysChanger again. Must stay fully hidden — no cmd/PowerShell console for end users.
+ * Survives app quit: waits until the elevated silent NSIS install is done,
+ * then launches BoysChanger in a normal visible window.
+ * (Style 0 / SW_HIDE caused a blank black window after updates.)
  */
-function schedulePostUpdateRelaunch() {
+function schedulePostUpdateRelaunch(expectedVersion?: string) {
   const exe = process.execPath;
-  logInfo('updater', 'schedule post-update relaunch', { exe, platform: process.platform });
+  logInfo('updater', 'schedule post-update relaunch', {
+    exe,
+    platform: process.platform,
+    expectedVersion,
+  });
   try {
     if (process.platform === 'win32') {
-      // wscript + VBS Run style 0 = no console window (unlike .cmd / powershell).
       const vbsPath = path.join(
         app.getPath('temp'),
         `boyschanger-relaunch-${process.pid}-${Date.now()}.vbs`,
       );
       const exeEsc = exe.replace(/"/g, '""');
+      const localAppData =
+        process.env.LOCALAPPDATA ||
+        path.join(path.dirname(app.getPath('appData')), 'Local');
+      const pendingDir = path
+        .join(localAppData, 'boyschanger-updater', 'pending')
+        .replace(/"/g, '""');
       const body = [
         'On Error Resume Next',
-        'Dim sh, fso, exe',
+        'Dim sh, fso, wmi, procs, p, exe, pendingDir, i, busy, nameL, cmdL',
         'Set sh = CreateObject("WScript.Shell")',
         'Set fso = CreateObject("Scripting.FileSystemObject")',
         `exe = "${exeEsc}"`,
-        // ~18s for UAC + silent NSIS; force-run may already have started the app.
-        'WScript.Sleep 18000',
+        `pendingDir = "${pendingDir}"`,
+        // Give UAC / NSIS a moment to start before we poll.
+        'WScript.Sleep 6000',
+        // Wait until updater/installer processes are gone (max ~90s).
+        'For i = 1 To 90',
+        '  busy = False',
+        '  Set wmi = GetObject("winmgmts:{impersonationLevel=impersonate}!\\\\.\\root\\cimv2")',
+        '  If Not wmi Is Nothing Then',
+        '    Set procs = wmi.ExecQuery("SELECT Name,CommandLine FROM Win32_Process")',
+        '    For Each p In procs',
+        '      nameL = LCase(p.Name & "")',
+        '      cmdL = LCase(p.CommandLine & "")',
+        '      If InStr(nameL, "boyschanger") > 0 Then',
+        '        If InStr(nameL, "windows-x64") > 0 Or InStr(cmdL, "--updated") > 0 Or InStr(cmdL, "/s") > 0 Then busy = True',
+        '      End If',
+        '      If InStr(nameL, "installer.exe") > 0 And InStr(cmdL, "boyschanger") > 0 Then busy = True',
+        '      If InStr(cmdL, "boyschanger-updater") > 0 And InStr(nameL, ".exe") > 0 Then',
+        '        If InStr(nameL, "boyschanger.exe") = 0 Then busy = True',
+        '      End If',
+        '    Next',
+        '  End If',
+        '  If fso.FolderExists(pendingDir) Then',
+        '    Dim f',
+        '    For Each f In fso.GetFolder(pendingDir).Files',
+        '      If LCase(fso.GetExtensionName(f.Name)) = "exe" Then busy = True',
+        '    Next',
+        '  End If',
+        '  If Not busy And i >= 8 Then Exit For',
+        '  WScript.Sleep 1000',
+        'Next',
+        // Settle after file replace so we do not open a half-written tree.
+        'WScript.Sleep 2500',
         'If fso.FileExists(exe) Then',
-        '  sh.Run """" & exe & """", 0, False',
+        // 1 = normal visible window. 0 (hidden) left a black empty shell.
+        '  sh.Run """" & exe & """", 1, False',
         'End If',
         'fso.DeleteFile WScript.ScriptFullName, True',
         '',
@@ -585,7 +659,7 @@ function schedulePostUpdateRelaunch() {
       return;
     }
     if (process.platform === 'darwin') {
-      const child = spawn('sh', ['-c', `sleep 14; open -n "${exe}"`], {
+      const child = spawn('sh', ['-c', `sleep 16; open -n "${exe}"`], {
         detached: true,
         stdio: 'ignore',
       });
