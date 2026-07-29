@@ -22,6 +22,8 @@ type Props = {
   };
   onSelect: (preset: VoicePreset) => void;
   onDelete: (id: string) => void;
+  /** Global search bar query — seeds the local filter. */
+  externalQuery?: string;
 };
 
 export function VoiceLibraryPanel({
@@ -30,19 +32,22 @@ export function VoiceLibraryPanel({
   labels,
   onSelect,
   onDelete,
+  externalQuery = '',
 }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
 
+  const effectiveQuery = query || externalQuery;
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = effectiveQuery.trim().toLowerCase();
     return presets.filter((p) => {
       if (filter === 'builtin' && p.source !== 'builtin') return false;
       if (filter === 'mine' && p.source !== 'user') return false;
       if (q && !p.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [presets, filter, query]);
+  }, [presets, filter, effectiveQuery]);
 
   return (
     <div className="voice-library">
@@ -65,7 +70,7 @@ export function VoiceLibraryPanel({
       <div className="library-toolbar">
         <input
           className="library-search"
-          type="search"
+          type="text"
           placeholder={labels.search}
           value={query}
           onChange={(e) => setQuery(e.target.value)}

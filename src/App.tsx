@@ -177,6 +177,7 @@ export default function App() {
   const [cableOsInstalled, setCableOsInstalled] = useState(false);
   const [cableInstallBusy, setCableInstallBusy] = useState(false);
   const [tab, setTab] = useState<AppTab>('main');
+  const [searchQuery, setSearchQuery] = useState('');
   const [voicePresets, setVoicePresets] = useState<VoicePreset[]>([]);
   const [activePresetId, setActivePresetId] = useState<string | null>('builtin-clean');
   const [saveName, setSaveName] = useState('');
@@ -997,10 +998,25 @@ export default function App() {
           </div>
           <input
             className="shell-search"
-            type="search"
+            type="text"
             placeholder={tr('searchApp')}
-            readOnly
-            tabIndex={-1}
+            value={searchQuery}
+            onChange={(e) => {
+              const q = e.target.value;
+              setSearchQuery(q);
+              const lower = q.toLowerCase().trim();
+              if (!lower) return;
+              const match = voicePresets.find((p) => p.name.toLowerCase().includes(lower));
+              if (match) {
+                if (tab !== 'voices' && tab !== 'studio') setTab('voices');
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setSearchQuery('');
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
           />
           <div className="shell-top-actions">
             <label className="lang-inline">
@@ -1296,6 +1312,7 @@ export default function App() {
                   setTab('studio');
                 }}
                 onDelete={(id) => void handleDeleteVoice(id)}
+                externalQuery={searchQuery}
               />
             ) : null}
 
