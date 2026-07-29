@@ -24,6 +24,7 @@ type Props = {
   onDelete: (id: string) => void;
   /** Global search bar query — seeds the local filter. */
   externalQuery?: string;
+  onClearExternal?: () => void;
 };
 
 export function VoiceLibraryPanel({
@@ -33,6 +34,7 @@ export function VoiceLibraryPanel({
   onSelect,
   onDelete,
   externalQuery = '',
+  onClearExternal,
 }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
@@ -68,13 +70,28 @@ export function VoiceLibraryPanel({
       </div>
 
       <div className="library-toolbar">
-        <input
-          className="library-search"
-          type="text"
-          placeholder={labels.search}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        <div className="library-search-wrap">
+          <input
+            className="library-search"
+            type="text"
+            placeholder={labels.search}
+            value={query || externalQuery}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {(query || externalQuery) ? (
+            <button
+              type="button"
+              className="shell-search-clear"
+              aria-label="Clear"
+              onClick={() => {
+                setQuery('');
+                onClearExternal?.();
+              }}
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
         <div className="library-filters">
           {(
             [

@@ -761,7 +761,7 @@ export default function App() {
     }
   };
 
-  const studioPanel = (
+  const studioPanel = (opts?: { includePrehear?: boolean }) => (
     <>
       <div className="active-voice-card">
         <div
@@ -925,8 +925,35 @@ export default function App() {
         </button>
       </div>
 
-      {prehearPanel}
+      {opts?.includePrehear !== false ? prehearPanel : null}
     </>
+  );
+
+  const savedVoices = voicePresets.filter((p) => p.source === 'user');
+  const savedVoicesPanel = (
+    <div className="saved-voices-panel">
+      <h3>{tr('voicesMine')}</h3>
+      {savedVoices.length === 0 ? (
+        <p className="hint tight">{tr('voicesEmptyMine')}</p>
+      ) : (
+        <div className="saved-voices-list">
+          {savedVoices.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={`saved-voice-chip ${activePresetId === p.id ? 'active' : ''}`}
+              style={{ '--card-accent': p.color } as React.CSSProperties}
+              onClick={() => selectPreset(p)}
+            >
+              <span className="dash-voice-3d" aria-hidden>
+                <SceneChip variant={variantForVoicePreset(p.id, p.name)} accent={p.color} />
+              </span>
+              <span className="saved-voice-name">{p.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 
   return (
@@ -996,28 +1023,41 @@ export default function App() {
             <h1>BoysChanger</h1>
             <p>{tr('eyebrow')}</p>
           </div>
-          <input
-            className="shell-search"
-            type="text"
-            placeholder={tr('searchApp')}
-            value={searchQuery}
-            onChange={(e) => {
-              const q = e.target.value;
-              setSearchQuery(q);
-              const lower = q.toLowerCase().trim();
-              if (!lower) return;
-              const match = voicePresets.find((p) => p.name.toLowerCase().includes(lower));
-              if (match) {
-                if (tab !== 'voices' && tab !== 'studio') setTab('voices');
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setSearchQuery('');
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-          />
+          <div className="shell-search-wrap">
+            <input
+              className="shell-search"
+              type="text"
+              placeholder={tr('searchApp')}
+              value={searchQuery}
+              onChange={(e) => {
+                const q = e.target.value;
+                setSearchQuery(q);
+                const lower = q.toLowerCase().trim();
+                if (!lower) return;
+                const match = voicePresets.find((p) => p.name.toLowerCase().includes(lower));
+                if (match) {
+                  if (tab !== 'voices' && tab !== 'studio') setTab('voices');
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setSearchQuery('');
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                className="shell-search-clear"
+                aria-label={tr('searchClear')}
+                title={tr('searchClear')}
+                onClick={() => setSearchQuery('')}
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
           <div className="shell-top-actions">
             <label className="lang-inline">
               <span>{tr('language')}</span>
@@ -1313,6 +1353,7 @@ export default function App() {
                 }}
                 onDelete={(id) => void handleDeleteVoice(id)}
                 externalQuery={searchQuery}
+                onClearExternal={() => setSearchQuery('')}
               />
             ) : null}
 
@@ -1338,7 +1379,7 @@ export default function App() {
               <section className="panel studio-main">
                 <h2>{tr('studioTitle')}</h2>
                 <p className="hint">{tr('studioFree')}</p>
-                {studioPanel}
+                {studioPanel()}
               </section>
             ) : null}
 
@@ -1445,7 +1486,8 @@ export default function App() {
           {tab === 'voices' ? (
             <aside className="shell-right">
               <h2>{tr('voiceCharacter')}</h2>
-              {studioPanel}
+              {studioPanel({ includePrehear: false })}
+              {savedVoicesPanel}
             </aside>
           ) : null}
         </div>
