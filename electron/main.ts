@@ -756,12 +756,16 @@ function setupAutoUpdater() {
 }
 
 async function ensureMicPermission(): Promise<boolean> {
-  if (process.platform === 'darwin') {
+  if (process.platform !== 'darwin') return true;
+  try {
     const status = systemPreferences.getMediaAccessStatus('microphone');
     if (status === 'granted') return true;
-    return systemPreferences.askForMediaAccess('microphone');
+    // Without NSMicrophoneUsageDescription this throws / kills the process on macOS.
+    return await systemPreferences.askForMediaAccess('microphone');
+  } catch (err) {
+    logError('audio', 'mic permission request failed', { err: String(err) });
+    return false;
   }
-  return true;
 }
 
 async function resolveScriptPath(name: string): Promise<string | null> {
@@ -882,11 +886,16 @@ if (gotSingleInstanceLock) {
 
   app.whenReady().then(async () => {
     initLogger();
-    await ensureMicPermission();
+    // Show UI first. Asking for mic before the window exists crashes unsigned /
+    // incomplete Mac builds when Info.plist usage text is missing, and also
+    // makes first launch look like “app won’t open”.
     createWindow();
     createTray();
     applyChangerStatus(false);
     setupAutoUpdater();
+    void ensureMicPermission().catch((err) => {
+      logWarn('audio', 'deferred mic permission failed', { err: String(err) });
+    });
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

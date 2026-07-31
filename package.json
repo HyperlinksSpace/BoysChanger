@@ -127,7 +127,11 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "BoysChanger needs microphone access to change your voice in calls and games.",
+        "NSAppleEventsUsageDescription": "BoysChanger may use automation to help route audio on macOS."
+      }
     },
     "nsis": {
       "oneClick": false,

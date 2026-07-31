@@ -112,6 +112,18 @@ jobs:
           name: BoysChanger ${{ needs.version.outputs.version }} (${{ needs.version.outputs.short_sha }})
           generate_release_notes: true
           make_latest: true
+          body: |
+            ## macOS first launch
+            Builds are currently **unsigned** (no Apple Developer ID in CI). If macOS says the app can’t be opened / is damaged:
+
+            1. Drag `BoysChanger.app` to **Applications**
+            2. Open **Terminal** and run:
+               ```bash
+               xattr -cr /Applications/BoysChanger.app
+               ```
+            3. Right-click the app → **Open** → confirm **Open**
+
+            Use the **arm64** DMG on Apple Silicon (M1/M2/M3/M4), or **x64** on Intel Macs.
           files: dist-assets/*
           fail_on_unmatched_files: true
         env:
