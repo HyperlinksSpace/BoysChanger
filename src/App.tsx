@@ -184,6 +184,8 @@ export default function App() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [dashSounds, setDashSounds] = useState<LibrarySound[]>([]);
   const [dashPlayingId, setDashPlayingId] = useState<string | null>(null);
+  const dashPlayingIdRef = useRef<string | null>(null);
+  const dashClearTimer = useRef<number | null>(null);
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [profileOpen, setProfileOpen] = useState(false);
   const [voicePicker, setVoicePicker] = useState<{ x: number; y: number } | null>(null);
@@ -741,7 +743,21 @@ export default function App() {
   );
 
   const playDashSound = async (sound: LibrarySound) => {
+    if (dashClearTimer.current) {
+      window.clearTimeout(dashClearTimer.current);
+      dashClearTimer.current = null;
+    }
+
+    // Second click on the same playing sound stops it; third click plays again.
+    if (dashPlayingIdRef.current === sound.id) {
+      stopLibrary();
+      dashPlayingIdRef.current = null;
+      setDashPlayingId(null);
+      return;
+    }
+
     stopLibrary();
+    dashPlayingIdRef.current = null;
     setDashPlayingId(null);
     const ready = engineOn || (await ensureEngineForSounds());
     if (!ready) {
@@ -749,13 +765,18 @@ export default function App() {
       return;
     }
     try {
+      dashPlayingIdRef.current = sound.id;
       setDashPlayingId(sound.id);
       const buffer = await getSoundArrayBuffer(sound.id);
       const duration = await playLibraryBuffer(buffer);
-      window.setTimeout(() => {
-        setDashPlayingId((cur) => (cur === sound.id ? null : cur));
+      dashClearTimer.current = window.setTimeout(() => {
+        if (dashPlayingIdRef.current === sound.id) {
+          dashPlayingIdRef.current = null;
+          setDashPlayingId(null);
+        }
       }, Math.max(400, duration * 1000 + 80));
     } catch (e) {
+      dashPlayingIdRef.current = null;
       setDashPlayingId(null);
       setSystemMsg(e instanceof Error ? e.message : String(e));
     }

@@ -59,10 +59,19 @@ export function SoundLibraryPanel({
 
   const play = async (sound: LibrarySound) => {
     setError('');
+    if (clearTimer.current) window.clearTimeout(clearTimer.current);
+
+    // Second click on the same playing sound stops it; third click plays again.
+    if (activeIdRef.current === sound.id) {
+      onStop();
+      activeIdRef.current = null;
+      setActiveId(null);
+      return;
+    }
+
     onStop();
     setActiveId(null);
     activeIdRef.current = null;
-    if (clearTimer.current) window.clearTimeout(clearTimer.current);
 
     const ready = engineRunning || (await onEnsureEngine());
     if (!ready) {
